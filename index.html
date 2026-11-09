@@ -133,15 +133,15 @@ html,body{background:#F4F3EF}
   };
   function cache() { put(LS.cache, { key: S.cfg.demo ? 'demo' : S.cfg.url, data: S.data }); }
   async function call(method, body) {
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 25000);
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 45000);
     let r;
     try {
       r = method === 'GET'
         ? await fetch(S.cfg.url + (S.cfg.url.indexOf('?') < 0 ? '?' : '&') + 'key=' + encodeURIComponent(S.cfg.key) + '&t=' + Date.now(), { signal: ctl.signal, redirect: 'follow' })
         : await fetch(S.cfg.url, { method: 'POST', signal: ctl.signal, redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: S.cfg.key }, body)) });
-    } catch (e) { throw new Error(navigator.onLine === false ? 'You are offline.' : 'Could not reach your sheet.'); }
+    } catch (e) { throw new Error(navigator.onLine === false ? 'You are offline.' : 'Could not reach your sheet. [' + (e.name === 'AbortError' ? 'timeout after 45 s' : (e.name || 'Error') + ': ' + (e.message || '')) + ' · ' + method + ']'); }
     finally { clearTimeout(t); }
-    let j; try { j = await r.json(); } catch (e) { throw new Error('Your sheet sent an unexpected answer. Check the web app URL.'); }
+    let j; try { j = await r.json(); } catch (e) { throw new Error('Your sheet sent an unexpected answer (HTTP ' + r.status + '). Check the web app URL.'); }
     if (!j.ok) throw new Error(j.error === 'Wrong key' ? 'The key is not right. Check it in the sheet.' : j.error || 'Something went wrong.');
     return j.result;
   }
