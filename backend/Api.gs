@@ -37,7 +37,16 @@ function doGet(e) {
     if (p.payload) return runAction_(JSON.parse(p.payload));
     return readAll_();
   });
+  if (p.frame) return frame_(out, p.frame);
   return emit_(out, p.callback);
+}
+
+// Second way in: the phone opens this in a hidden frame and gets the answer by message.
+function frame_(out, id) {
+  const safeId = /^[A-Za-z0-9_]{1,40}$/.test(id) ? id : 'x';
+  const s = JSON.stringify(out).replace(/</g, '\\u003c');
+  const html = '<!DOCTYPE html><html><body><script>window.top.postMessage({fyn:"' + safeId + '",out:' + s + '},"*");<\/script></body></html>';
+  return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function doPost(e) {

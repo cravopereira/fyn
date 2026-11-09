@@ -96,7 +96,7 @@ html,body{background:#F4F3EF}
     </ol>
   </details>
   <button id="sdemo" class="ghost" type="button">Try with sample data</button>
-  <p style="font-size:12px;color:#77766F;text-align:center">App version 5 · <a href="check.html" style="color:#77766F">Check the connection</a></p>
+  <p style="font-size:12px;color:#77766F;text-align:center">App version 6 · <a href="check.html" style="color:#77766F">Check the connection</a></p>
 </div>
 <div id="loading" class="full"><div class="spin" aria-hidden="true"></div><div class="msg" role="status" style="font-size:15px;color:#3A3935">Opening your sheet…</div><button class="again" type="button">Try again</button><button class="change" type="button" style="display:none;height:44px;border:0;background:none;font:600 15px Geist,system-ui,sans-serif;color:#111;text-decoration:underline">Change link or key</button></div>
 </div>
@@ -134,24 +134,50 @@ html,body{background:#F4F3EF}
   };
   function cache() { put(LS.cache, { key: S.cfg.demo ? 'demo' : S.cfg.url, data: S.data }); }
   let seq = 0;
-  function call(method, body) {
+  const handle = (j, resolve, reject) => {
+    if (!j || !j.ok) reject(new Error(j && j.error === 'Wrong key' ? 'The key is not right. Check it in the sheet.' : (j && j.error) || 'Something went wrong.'));
+    else resolve(j.result);
+  };
+  function paramsFor(body) { return 'key=' + encodeURIComponent(S.cfg.key) + '&t=' + Date.now() + (body ? '&payload=' + encodeURIComponent(JSON.stringify(body)) : ''); }
+  const base = () => S.cfg.url + (S.cfg.url.indexOf('?') < 0 ? '?' : '&');
+  function viaScript(body) {
     return new Promise((resolve, reject) => {
       const cb = '__fyn' + Date.now().toString(36) + (seq++);
-      const params = 'key=' + encodeURIComponent(S.cfg.key) + '&callback=' + cb + '&t=' + Date.now() + (body ? '&payload=' + encodeURIComponent(JSON.stringify(body)) : '');
-      const el = document.createElement('script');
-      let done = false;
+      const el = document.createElement('script'); let done = false;
       const finish = () => { done = true; clearTimeout(timer); try { delete window[cb]; } catch (x) { window[cb] = undefined; } el.remove(); };
-      const timer = setTimeout(() => { if (done) return; finish(); reject(new Error('Your sheet took too long to answer. Try again.')); }, 45000);
-      window[cb] = (j) => {
-        if (done) return; finish();
-        if (!j || !j.ok) reject(new Error(j && j.error === 'Wrong key' ? 'The key is not right. Check it in the sheet.' : (j && j.error) || 'Something went wrong.'));
-        else resolve(j.result);
-      };
-      el.onerror = () => { if (done) return; finish(); reject(new Error(navigator.onLine === false ? 'You are offline.' : 'Could not reach your sheet. Check the web app URL.')); };
+      const timer = setTimeout(() => { if (done) return; finish(); reject(Object.assign(new Error('Your sheet took too long to answer. Try again.'), { transport: true })); }, 45000);
+      window[cb] = (j) => { if (done) return; finish(); handle(j, resolve, reject); };
+      el.onerror = () => { if (done) return; finish(); reject(Object.assign(new Error('blocked'), { transport: true })); };
       el.onload = () => { setTimeout(() => { if (done) return; finish(); reject(new Error('Your sheet answered in an old format. Update the Api file in Apps Script and deploy a new version.')); }, 50); };
-      el.src = S.cfg.url + (S.cfg.url.indexOf('?') < 0 ? '?' : '&') + params;
+      el.src = base() + paramsFor(body) + '&callback=' + cb;
       document.head.appendChild(el);
     });
+  }
+  function viaFrame(body) {
+    return new Promise((resolve, reject) => {
+      const id = 'f' + Date.now().toString(36) + (seq++);
+      const ifr = document.createElement('iframe'); let done = false;
+      ifr.setAttribute('aria-hidden', 'true'); ifr.tabIndex = -1;
+      ifr.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0';
+      const onMsg = (ev) => { const d = ev.data; if (!d || d.fyn !== id) return; finish(); handle(d.out, resolve, reject); };
+      const finish = () => { done = true; clearTimeout(timer); window.removeEventListener('message', onMsg); ifr.remove(); };
+      const timer = setTimeout(() => { if (done) return; finish(); reject(new Error(navigator.onLine === false ? 'You are offline.' : 'Could not reach your sheet. Run the connection check from the first screen.')); }, 45000);
+      window.addEventListener('message', onMsg);
+      ifr.src = base() + paramsFor(body) + '&frame=' + id;
+      document.body.appendChild(ifr);
+    });
+  }
+  // Reads find out which way works on this phone. Writes never retry the other way,
+  // so a save can never happen twice.
+  async function call(method, body) {
+    if (body && !S.transport) await call('GET');
+    if (S.transport === 'frame') return viaFrame(body);
+    try { const r = await viaScript(body); S.transport = 'script'; return r; }
+    catch (e) {
+      if (!e.transport) throw e;
+      if (body) throw new Error('Could not confirm the save. Refresh to see if it went through.');
+      S.transport = 'frame'; return viaFrame(body);
+    }
   }
 
   // ---------- demo: same contract, in memory, seeded with a snapshot ----------

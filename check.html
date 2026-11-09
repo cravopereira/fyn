@@ -1,25 +1,32 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fyn · connection check</title>
-<style>body{font:16px -apple-system,system-ui,sans-serif;background:#F4F3EF;color:#111;margin:0;padding:24px}h1{font-size:24px}label{display:block;font-size:12px;font-weight:600;color:#5C5B56;text-transform:uppercase;margin:14px 0 6px}input{width:100%;box-sizing:border-box;height:48px;border:1px solid #E4E2DC;border-radius:12px;padding:0 12px;font-size:15px}button{margin-top:16px;width:100%;height:52px;border:0;border-radius:16px;background:#111;color:#fff;font-size:16px;font-weight:600}pre{white-space:pre-wrap;word-break:break-all;background:#fff;border-radius:12px;padding:14px;font-size:13px;line-height:1.5}</style></head>
-<body><h1>Connection check</h1><p>Version 5. This page tests the link between your phone and your sheet and shows exactly what happens.</p>
-<label>Web app URL</label><input id="u" autocapitalize="off" autocomplete="off" spellcheck="false">
-<label>Key</label><input id="k" autocapitalize="off" autocomplete="off" spellcheck="false">
+<style>body{font:16px -apple-system,system-ui,sans-serif;background:#F4F3EF;color:#111;margin:0;padding:24px}h1{font-size:24px}label{display:block;font-size:12px;font-weight:600;color:#5C5B56;text-transform:uppercase;margin:14px 0 6px}input{width:100%;box-sizing:border-box;height:48px;border:1px solid #E4E2DC;border-radius:12px;padding:0 12px;font-size:15px}button{margin-top:16px;width:100%;height:52px;border:0;border-radius:16px;background:#111;color:#fff;font-size:16px;font-weight:600}button:disabled{background:#EDEBE6;color:#77766F}pre{white-space:pre-wrap;word-break:break-all;background:#fff;border-radius:12px;padding:14px;font-size:13px;line-height:1.5}#hint{color:#B42318;font-size:14px;margin-top:8px}</style></head>
+<body><h1>Connection check</h1><p>Version 6. Paste your Web app URL and key, then run the check.</p>
+<label>Web app URL</label><input id="u" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+<label>Key</label><input id="k" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="The long code from the sheet">
+<div id="hint"></div>
 <button id="go">Run the check</button><pre id="out">Not run yet.</pre>
 <script>
 const cfg=(()=>{try{return JSON.parse(localStorage.getItem('fyn.cfg')||'{}')}catch(e){return {}}})();
 u.value=cfg.url||'';k.value=cfg.key||'';
 const log=(s)=>{out.textContent+=s+'\n'};
-go.onclick=()=>{
-  out.textContent='';const url=u.value.trim(),key=k.value.trim();
-  log('URL length: '+url.length+' · starts ok: '+url.startsWith('https://script.google.com/macros/s/')+' · ends with /exec: '+url.endsWith('/exec'));
-  log('Key length: '+key.length+' · has spaces: '+/\s/.test(k.value));
-  log('Online: '+navigator.onLine);
-  const cb='__chk'+Date.now(),t0=Date.now();let done=false;
-  window[cb]=(j)=>{done=true;log('Answer in '+(Date.now()-t0)+' ms: '+JSON.stringify(j).slice(0,300));log(j&&j.ok?'RESULT: connection works.':'RESULT: the sheet answered with an error (see above).')};
-  const s=document.createElement('script');
-  s.onerror=()=>{if(done)return;done=true;log('RESULT: the script could not load after '+(Date.now()-t0)+' ms (blocked or wrong URL).')};
-  s.onload=()=>setTimeout(()=>{if(done)return;done=true;log('RESULT: loaded but no callback: the Api file in Apps Script is the old version, or a new version was not deployed.')},100);
-  s.src=url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(key)+'&callback='+cb+'&t='+Date.now();
-  document.head.appendChild(s);log('Request sent…');
-  setTimeout(()=>{if(!done)log('Still waiting after 30 s…')},30000);
+function test(kind,url,key){return new Promise((res)=>{
+  const id='c'+Date.now()+Math.floor(Math.random()*1e4),t0=Date.now();let done=false;
+  const end=(msg)=>{if(done)return;done=true;log(kind+': '+msg+' ('+(Date.now()-t0)+' ms)');res()};
+  const q=url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(key)+'&t='+Date.now();
+  if(kind==='Way 1'){window[id]=(j)=>end(j&&j.ok?'WORKS':'answered: '+JSON.stringify(j).slice(0,120));
+    const s=document.createElement('script');s.onerror=()=>end('blocked');s.onload=()=>setTimeout(()=>end('old Api version'),100);s.src=q+'&callback='+id;document.head.appendChild(s);}
+  else{const f=document.createElement('iframe');f.style.cssText='position:absolute;left:-9999px;width:1px;height:1px';
+    const on=(ev)=>{if(!ev.data||ev.data.fyn!==id)return;removeEventListener('message',on);const j=ev.data.out;end(j&&j.ok?'WORKS':'answered: '+JSON.stringify(j).slice(0,120))};
+    addEventListener('message',on);f.src=q+'&frame='+id;document.body.appendChild(f);}
+  setTimeout(()=>end('no answer after 30 s'),30000);
+})}
+go.onclick=async()=>{
+  hint.textContent='';const url=u.value.trim(),key=k.value.trim();
+  if(!url||!key){hint.textContent='Paste the URL and the key first. Both fields are empty or incomplete.';return}
+  out.textContent='';go.disabled=true;
+  log('URL length '+url.length+' · starts ok: '+url.startsWith('https://script.google.com/macros/s/')+' · ends with /exec: '+url.endsWith('/exec'));
+  log('Key length '+key.length);
+  await test('Way 1',url,key);await test('Way 2',url,key);
+  go.disabled=false;
 };
 </script></body></html>
