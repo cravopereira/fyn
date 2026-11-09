@@ -132,18 +132,25 @@ html,body{background:#F4F3EF}
     }
   };
   function cache() { put(LS.cache, { key: S.cfg.demo ? 'demo' : S.cfg.url, data: S.data }); }
-  async function call(method, body) {
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 45000);
-    let r;
-    try {
-      r = method === 'GET'
-        ? await fetch(S.cfg.url + (S.cfg.url.indexOf('?') < 0 ? '?' : '&') + 'key=' + encodeURIComponent(S.cfg.key) + '&t=' + Date.now(), { signal: ctl.signal, redirect: 'follow' })
-        : await fetch(S.cfg.url, { method: 'POST', signal: ctl.signal, redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: S.cfg.key }, body)) });
-    } catch (e) { throw new Error(navigator.onLine === false ? 'You are offline.' : 'Could not reach your sheet. [' + (e.name === 'AbortError' ? 'timeout after 45 s' : (e.name || 'Error') + ': ' + (e.message || '')) + ' · ' + method + ']'); }
-    finally { clearTimeout(t); }
-    let j; try { j = await r.json(); } catch (e) { throw new Error('Your sheet sent an unexpected answer (HTTP ' + r.status + '). Check the web app URL.'); }
-    if (!j.ok) throw new Error(j.error === 'Wrong key' ? 'The key is not right. Check it in the sheet.' : j.error || 'Something went wrong.');
-    return j.result;
+  let seq = 0;
+  function call(method, body) {
+    return new Promise((resolve, reject) => {
+      const cb = '__fyn' + Date.now().toString(36) + (seq++);
+      const params = 'key=' + encodeURIComponent(S.cfg.key) + '&callback=' + cb + '&t=' + Date.now() + (body ? '&payload=' + encodeURIComponent(JSON.stringify(body)) : '');
+      const el = document.createElement('script');
+      let done = false;
+      const finish = () => { done = true; clearTimeout(timer); try { delete window[cb]; } catch (x) { window[cb] = undefined; } el.remove(); };
+      const timer = setTimeout(() => { if (done) return; finish(); reject(new Error('Your sheet took too long to answer. Try again.')); }, 45000);
+      window[cb] = (j) => {
+        if (done) return; finish();
+        if (!j || !j.ok) reject(new Error(j && j.error === 'Wrong key' ? 'The key is not right. Check it in the sheet.' : (j && j.error) || 'Something went wrong.'));
+        else resolve(j.result);
+      };
+      el.onerror = () => { if (done) return; finish(); reject(new Error(navigator.onLine === false ? 'You are offline.' : 'Could not reach your sheet. Check the web app URL.')); };
+      el.onload = () => { setTimeout(() => { if (done) return; finish(); reject(new Error('Your sheet answered in an old format. Update the Api file in Apps Script and deploy a new version.')); }, 50); };
+      el.src = S.cfg.url + (S.cfg.url.indexOf('?') < 0 ? '?' : '&') + params;
+      document.head.appendChild(el);
+    });
   }
 
   // ---------- demo: same contract, in memory, seeded with a snapshot ----------

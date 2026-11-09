@@ -31,34 +31,44 @@ function createAppKey() {
 }
 
 function doGet(e) {
-  return respond_(() => {
-    checkKey_(e.parameter.key);
+  const p = (e && e.parameter) || {};
+  const out = run_(() => {
+    checkKey_(p.key);
+    if (p.payload) return runAction_(JSON.parse(p.payload));
     return readAll_();
   });
+  return emit_(out, p.callback);
 }
 
 function doPost(e) {
-  return respond_(() => {
-    const body = JSON.parse(e.postData.contents || '{}');
-    checkKey_(body.key);
-    const lock = LockService.getDocumentLock();
-    lock.waitLock(20000);
-    try {
-      const fn = ACTIONS_[body.action];
-      if (!fn) throw new Error('Unknown action');
-      const result = fn(body) || {};
-      SpreadsheetApp.flush();
-      result.data = readAll_();
-      return result;
-    } finally { lock.releaseLock(); }
-  });
+  let body = {};
+  try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (x) {}
+  return emit_(run_(() => { checkKey_(body.key); return runAction_(body); }));
 }
 
-function respond_(fn) {
-  let out;
-  try { out = { ok: true, result: fn() }; }
-  catch (err) { out = { ok: false, error: String(err && err.message || err) }; }
-  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+function runAction_(body) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(20000);
+  try {
+    const fn = ACTIONS_[body.action];
+    if (!fn) throw new Error('Unknown action');
+    const result = fn(body) || {};
+    SpreadsheetApp.flush();
+    result.data = readAll_();
+    return result;
+  } finally { lock.releaseLock(); }
+}
+
+function run_(fn) {
+  try { return { ok: true, result: fn() }; }
+  catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+}
+
+// The phone asks with ?callback=name so Safari never blocks the answer.
+function emit_(out, cb) {
+  const s = JSON.stringify(out);
+  if (cb && /^[A-Za-z_$][\w$]{0,40}$/.test(cb)) return ContentService.createTextOutput(cb + '(' + s + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
+  return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.JSON);
 }
 
 function checkKey_(key) {
