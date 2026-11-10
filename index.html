@@ -187,7 +187,7 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
     </ol>
   </details>
   <button id="sdemo" class="ghost" type="button">Try with sample data</button>
-  <p style="font-size:12px;color:#77766F;text-align:center">App version 15 · <a href="check.html" style="color:#77766F">Check the connection</a></p>
+  <p style="font-size:12px;color:#77766F;text-align:center">App version 16 · <a href="check.html" style="color:#77766F">Check the connection</a></p>
 </div>
 <div id="loading" class="full"><div class="logo spin" aria-hidden="true"><i></i><i></i><i></i></div><div class="msg" role="status" style="font-size:15px;color:#3A3935">Opening your sheet…</div><button class="again" type="button">Try again</button><button class="change" type="button" style="display:none;height:44px;border:0;background:none;font:600 15px Geist,system-ui,sans-serif;color:#111;text-decoration:underline">Change link or key</button></div>
 </div>
@@ -209,9 +209,12 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
       if (!S.connected()) return;
       if (!S.data) { const c = get(LS.cache); if (c && c.key === (S.cfg.demo ? 'demo' : S.cfg.url)) { S.data = c.data; S.emit(); } }
       S.loading = true; S.emit();
+      const gen = writeGen;
       try {
         const d = S.cfg.demo ? await Demo.read() : await call('GET');
-        if (pending.length) { confirmed = d; rebuild(); } else S.data = d;
+        // A read that started before a save finished can be older than what the save returned. Skip it.
+        if (gen !== writeGen || pending.length) { S.loading = false; S.emit(); return; }
+        S.data = d;
         S.lastError = null; cache(); S.loading = false; S.emit();
       } catch (e) { S.lastError = e.message; S.loading = false; S.emit(); throw e; }
     },
@@ -220,22 +223,22 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
       // the sheet is shown with the ones still pending applied on top, so nothing flickers back.
       const op = { action, payload: clone(payload), opt: !S.cfg.demo && !!S.data && OPT.indexOf(action) >= 0 };
       if (!pending.length) confirmed = S.data;
-      pending.push(op); S.busy = true;
+      pending.push(op); writeGen++; S.busy = true;
       if (op.opt) { rebuild(); S.emit(); } else S.emit();
       const run = () => (S.cfg.demo ? Demo.act(action, payload) : call('POST', Object.assign({ action }, payload)));
       const p = chain.then(run, run); chain = p.catch(() => {});
       const drop = () => { const i = pending.indexOf(op); if (i >= 0) pending.splice(i, 1); S.busy = pending.length > 0; };
       try {
         const res = await p;
-        drop();
+        drop(); writeGen++;
         if (res && res.data) confirmed = res.data;
         else if (confirmed) { try { const c = clone(confirmed); Demo.mutate(c, action, clone(payload)); Demo.recalc(c); confirmed = c; } catch (e) {} }
         rebuild(); cache(); S.lastError = null; S.emit();
         return res;
-      } catch (e) { drop(); rebuild(); S.emit(); throw e; }
+      } catch (e) { drop(); writeGen++; rebuild(); S.emit(); throw e; }
     }
   };
-  let confirmed = null, chain = Promise.resolve();
+  let writeGen = 0, confirmed = null, chain = Promise.resolve();
   const pending = [];
   function rebuild() {
     if (!confirmed) return;
