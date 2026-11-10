@@ -195,6 +195,17 @@ function ensureNoteColumn_() {
   if (tx.getMaxColumns() < SALDO.NOTE_COL) tx.insertColumnsAfter(tx.getMaxColumns(), SALDO.NOTE_COL - tx.getMaxColumns());
   if (tx.getRange(1, SALDO.NOTE_COL).getValue() === '') tx.getRange(1, SALDO.NOTE_COL).setValue('Note');
 }
+// A category the sheet does not know yet is added to Categories, so the app is never blocked by the list.
+function ensureCategory_(t) {
+  const name = String(t.cat || '').trim(); if (!name) return;
+  const cs = ss_().getSheetByName(SALDO.CATS || 'Categories'); if (!cs) return;
+  const vals = cs.getRange(2, 1, Math.max(1, cs.getLastRow() - 1), 1).getValues();
+  if (vals.some((r) => String(r[0]).trim().toLowerCase() === name.toLowerCase())) return;
+  let r = vals.findIndex((x) => String(x[0]).trim() === '');
+  r = r < 0 ? cs.getLastRow() + 1 : r + 2;
+  const group = t.to && t.from && t.from !== 'ext' ? 'Internal transfer' : (t.from === 'ext' || (!t.from && t.to)) ? 'Income' : 'Wants';
+  cs.getRange(r, 1, 1, 2).setValues([[name, group]]);
+}
 function txRowValues_(t) {
   return [dateFormula_(t.date), t.desc || '', t.cat || '', t.from || '', t.to || '', Number(t.amount), t.paid === true];
 }
@@ -220,14 +231,22 @@ const ACTIONS_ = {
     ensureNoteColumn_();
     const tx = ss_().getSheetByName(SALDO.TX);
     const row = firstEmptyTxRow_(tx);
-    tx.getRange(row, 1, 1, 7).setValues([txRowValues_(b.tx)]);
-    tx.getRange(row, SALDO.NOTE_COL).setValue(b.tx.note || '');
+    ensureCategory_(b.tx);
+    try {
+      tx.getRange(row, 1, 1, 7).setValues([txRowValues_(b.tx)]);
+      tx.getRange(row, SALDO.NOTE_COL).setValue(b.tx.note || '');
+    } catch (e) {
+      // Never leave half an entry behind.
+      tx.getRange(row, 1, 1, 6).clearContent(); tx.getRange(row, 7).setValue(false);
+      throw e;
+    }
     return { row: row };
   },
   updateTx: function (b) {
     ensureNoteColumn_();
     const tx = ss_().getSheetByName(SALDO.TX);
     sameTx_(tx, b.row, b.sig);
+    ensureCategory_(b.tx);
     tx.getRange(b.row, 1, 1, 7).setValues([txRowValues_(b.tx)]);
     tx.getRange(b.row, SALDO.NOTE_COL).setValue(b.tx.note || '');
     return { row: b.row };
