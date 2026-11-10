@@ -227,6 +227,28 @@ const ACTIONS_ = {
     acc.getRange(b.row, 4).setFormula(dateFormula_(t));
     return {};
   },
+  addAccount: function (b) {
+    const acc = ss_().getSheetByName(SALDO.ACC);
+    const name = String(b.name || '').trim();
+    if (!name) throw new Error('Give the account a name.');
+    const names = acc.getRange(2, 1, 41, 1).getValues().map((r) => String(r[0]).trim().toLowerCase());
+    if (names.indexOf(name.toLowerCase()) >= 0) throw new Error('There is already an account called ' + name + '.');
+    let row = -1;
+    for (let i = 0; i < names.length; i++) if (names[i] === '') { row = i + 2; break; }
+    if (row < 0) throw new Error('Accounts is full (41). Remove one in the sheet first.');
+    const types = ['Bank', 'Cash', 'Credit card', 'Investment', 'Crypto', 'Loan', 'Property'];
+    const type = types.indexOf(b.type) >= 0 ? b.type : 'Bank';
+    const owed = type === 'Credit card' || type === 'Loan';
+    const bal = Number(b.balance) || 0;
+    const t = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+    acc.getRange(row, 1, 1, 2).setValues([[name, type]]);
+    acc.getRange(row, 3).setValue(owed ? -Math.abs(bal) : bal);
+    acc.getRange(row, 4).setFormula(dateFormula_(t));
+    if (type === 'Credit card' && Number(b.limit) > 0) acc.getRange(row, 8).setValue(Number(b.limit));
+    if (b.note) acc.getRange(row, 13).setValue(String(b.note));
+    if (b.colour) acc.getRange(row, 14).setValue(String(b.colour));
+    return { row: row };
+  },
   closeMonth: function () {
     return { saved: closeMonth() }; // from the existing "Close month" script in this project
   }
