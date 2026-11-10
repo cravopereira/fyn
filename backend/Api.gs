@@ -117,11 +117,11 @@ function readAll_() {
   });
 
   const accLast = Math.max(2, acc.getLastRow());
-  const accVals = acc.getRange(2, 1, accLast - 1, 14).getValues();
+  const accVals = acc.getRange(2, 1, accLast - 1, Math.min(15, acc.getMaxColumns())).getValues();
   const accounts = [];
   accVals.forEach((r, i) => {
     if (!r[0]) return;
-    accounts.push({ row: i + 2, name: String(r[0]), type: String(r[1]), balanceApp: num_(r[2]), balanceDate: ymd_(r[3]), balanceNow: num_(r[4]) || 0, expectedEnd: num_(r[5]), limit: num_(r[7]), available: num_(r[8]), invested: num_(r[9]), profit: num_(r[11]), note: String(r[12] || ''), colour: String(r[13] || '') });
+    accounts.push({ row: i + 2, name: String(r[0]), type: String(r[1]), balanceApp: num_(r[2]), balanceDate: ymd_(r[3]), balanceNow: num_(r[4]) || 0, expectedEnd: num_(r[5]), limit: num_(r[7]), available: num_(r[8]), invested: num_(r[9]), profit: num_(r[11]), note: String(r[12] || ''), colour: String(r[13] || ''), archived: r[14] === true });
   });
 
   const catVals = cat.getRange(2, 1, Math.max(1, cat.getLastRow() - 1), 3).getValues();
@@ -142,6 +142,29 @@ function readAll_() {
 }
 
 // ---------- writing ----------
+function renameEverywhere_(oldName, newName) {
+  const ss = ss_();
+  const tx = ss.getSheetByName(SALDO.TX), rec = ss.getSheetByName(SALDO.REC);
+  const txN = Math.max(1, tx.getLastRow() - 1);
+  [4, 5].forEach((col) => {
+    const r = tx.getRange(2, col, txN, 1), v = r.getValues();
+    let ch = false; v.forEach((x) => { if (String(x[0]) === oldName) { x[0] = newName; ch = true; } });
+    if (ch) r.setValues(v);
+  });
+  [3, 4].forEach((col) => {
+    const r = rec.getRange(SALDO.REC_FIRST, col, SALDO.REC_LAST - SALDO.REC_FIRST + 1, 1), v = r.getValues();
+    let ch = false; v.forEach((x) => { if (String(x[0]) === oldName) { x[0] = newName; ch = true; } });
+    if (ch) r.setValues(v);
+  });
+}
+function countUses_(name) {
+  const ss = ss_();
+  const tx = ss.getSheetByName(SALDO.TX), rec = ss.getSheetByName(SALDO.REC);
+  let n = 0;
+  tx.getRange(2, 4, Math.max(1, tx.getLastRow() - 1), 2).getValues().forEach((r) => { if (r[0] === name || r[1] === name) n++; });
+  rec.getRange(SALDO.REC_FIRST, 3, SALDO.REC_LAST - SALDO.REC_FIRST + 1, 2).getValues().forEach((r) => { if (r[0] === name || r[1] === name) n++; });
+  return n;
+}
 function dateFormula_(s) { const p = String(s).split('-').map(Number); return '=DATE(' + p[0] + ',' + p[1] + ',' + p[2] + ')'; }
 function ensureNoteColumn_() {
   const tx = ss_().getSheetByName(SALDO.TX);
@@ -248,6 +271,43 @@ const ACTIONS_ = {
     if (b.note) acc.getRange(row, 13).setValue(String(b.note));
     if (b.colour) acc.getRange(row, 14).setValue(String(b.colour));
     return { row: row };
+  },
+  updateAccount: function (b) {
+    const ss = ss_(), acc = ss.getSheetByName(SALDO.ACC);
+    const old = String(acc.getRange(b.row, 1).getValue());
+    if (old !== b.name) throw new Error('Accounts changed in the sheet. Refresh and try again.');
+    const p = b.patch || {};
+    if (p.name != null) {
+      const nn = String(p.name).trim();
+      if (!nn) throw new Error('Give the account a name.');
+      if (nn !== old) {
+        const names = acc.getRange(2, 1, 41, 1).getValues().map((r) => String(r[0]).trim().toLowerCase());
+        if (names.indexOf(nn.toLowerCase()) >= 0) throw new Error('There is already an account called ' + nn + '.');
+        renameEverywhere_(old, nn);
+        acc.getRange(b.row, 1).setValue(nn);
+      }
+    }
+    const types = ['Bank', 'Cash', 'Credit card', 'Investment', 'Crypto', 'Loan', 'Property'];
+    if (p.type != null && types.indexOf(p.type) >= 0) acc.getRange(b.row, 2).setValue(p.type);
+    if (p.limit != null) acc.getRange(b.row, 8).setValue(Number(p.limit) > 0 ? Number(p.limit) : '');
+    if (p.invested != null) acc.getRange(b.row, 10).setValue(Number(p.invested) > 0 ? Number(p.invested) : '');
+    if (p.note != null) acc.getRange(b.row, 13).setValue(String(p.note));
+    if (p.colour != null) acc.getRange(b.row, 14).setValue(String(p.colour));
+    if (p.archived != null) {
+      if (acc.getMaxColumns() < 15) acc.insertColumnsAfter(acc.getMaxColumns(), 15 - acc.getMaxColumns());
+      if (acc.getRange(1, 15).getValue() === '') acc.getRange(1, 15).setValue('Archived');
+      acc.getRange(b.row, 15).setValue(p.archived === true);
+    }
+    return {};
+  },
+  removeAccount: function (b) {
+    const ss = ss_(), acc = ss.getSheetByName(SALDO.ACC);
+    const name = String(acc.getRange(b.row, 1).getValue());
+    if (name !== b.name) throw new Error('Accounts changed in the sheet. Refresh and try again.');
+    if (countUses_(name) > 0) throw new Error(name + ' has entries in Transactions or Plan, so it can only be archived.');
+    acc.getRange(b.row, 1, 1, 4).clearContent();
+    acc.getRange(b.row, 8, 1, Math.min(8, acc.getMaxColumns() - 7)).clearContent();
+    return {};
   },
   closeMonth: function () {
     return { saved: closeMonth() }; // from the existing "Close month" script in this project
