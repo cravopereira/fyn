@@ -49,6 +49,16 @@ input,textarea,button{font-family:inherit}
 @media (prefers-reduced-transparency: reduce){[data-glass],.gmenu .sh,.topglass{background:#fff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}
 #gtoast .ic{width:26px;height:26px;border-radius:13px;background:#7BD88F;display:flex;align-items:center;justify-content:center;flex:none}
 
+.under{position:absolute;display:flex;align-items:center;gap:8px;padding:0 4px;box-sizing:border-box;z-index:0;pointer-events:auto}
+.under.l{justify-content:flex-end}
+.under.r{justify-content:flex-start}
+.under button{height:40px;border:0;border-radius:999px;padding:0 16px;display:flex;align-items:center;gap:6px;font:600 14px Geist,system-ui,sans-serif;white-space:nowrap;transform-origin:center;will-change:transform,opacity}
+.under button.nt{background:var(--fill);color:var(--ink)}
+.under button.dg{background:var(--red);color:#fff}
+.under button.ok{background:#1F8A5B;color:#fff}
+.under.l.armed button.dg{flex:1;justify-content:flex-end;transition:flex .25s cubic-bezier(.32,.72,0,1)!important}
+.under.r.armed button.ok{transform:scale(1.08)!important;transition:transform .2s cubic-bezier(.32,.72,0,1)!important}
+
 html,body{background:#F4F3EF}
 #app{height:100dvh;max-width:none}
 @media (min-width:600px){#app{max-width:430px}}
@@ -99,6 +109,7 @@ html[data-theme=dark] #app [stroke="#ECEAE5"]{stroke:var(--cut)}
 html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
 #app [role=dialog][style*="border-radius: 34px"]{width:calc(100% - 16px)!important;margin:0 8px calc(8px + env(safe-area-inset-bottom))!important;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 #app textarea{border-radius:20px!important}
+#app input,#app textarea,#setup input{font-size:16px!important}
 [role=dialog] [data-scroll]{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 [role=dialog]{overscroll-behavior:contain}
 [role=dialog] .is-scrolled{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18px);mask-image:linear-gradient(to bottom,transparent 0,#000 18px)}
@@ -178,7 +189,7 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
     </ol>
   </details>
   <button id="sdemo" class="ghost" type="button">Try with sample data</button>
-  <p style="font-size:12px;color:#77766F;text-align:center">App version 11 · <a href="check.html" style="color:#77766F">Check the connection</a></p>
+  <p style="font-size:12px;color:#77766F;text-align:center">App version 12 · <a href="check.html" style="color:#77766F">Check the connection</a></p>
 </div>
 <div id="loading" class="full"><div class="logo spin" aria-hidden="true"><i></i><i></i><i></i></div><div class="msg" role="status" style="font-size:15px;color:#3A3935">Opening your sheet…</div><button class="again" type="button">Try again</button><button class="change" type="button" style="display:none;height:44px;border:0;background:none;font:600 15px Geist,system-ui,sans-serif;color:#111;text-decoration:underline">Change link or key</button></div>
 </div>
@@ -508,14 +519,17 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
     app.appendChild(ov); requestAnimationFrame(() => ov.classList.add('on'));
   }
   let openRow = null;
-  const closeRow = () => { if (openRow) { openRow.row.style.transition = 'transform .2s'; openRow.row.style.transform = ''; openRow.under.remove(); openRow = null; } };
+  const SPRING = 'transform .38s cubic-bezier(.32,.72,0,1)';
+  const closeRow = () => { if (openRow) { const o = openRow; openRow = null; o.row.style.transition = SPRING; o.row.style.transform = ''; progress(o.under, 0, true); setTimeout(() => o.under.remove(), 380); } };
+  const ICON = { paid: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>', editrow: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>', del: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>', skip: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' };
+  function progress(u, p, animate) { Array.from(u.children).forEach((b, i) => { const q = Math.max(0, Math.min(1, p * 1.25 - i * 0.12)); b.style.transition = animate ? 'transform .38s cubic-bezier(.32,.72,0,1), opacity .25s ease' : 'none'; b.style.transform = 'scale(' + (0.55 + 0.45 * q) + ')'; b.style.opacity = String(Math.min(1, q * 1.4)); }); }
   function underlay(row, side, acts) {
-    row.parentNode.style.position = 'relative'; row.parentNode.style.overflow = 'hidden';
+    const par = row.parentNode; par.style.position = 'relative'; par.style.overflow = 'hidden';
     const u = document.createElement('div'); u.className = 'under ' + side;
-    u.style.top = row.offsetTop + 'px'; u.style.height = row.offsetHeight + 'px';
-    acts.forEach((a) => { const b = document.createElement('button'); b.textContent = a.label; b.className = a.danger ? 'dg' : (side === 'r' ? 'ok' : ''); b.onclick = (e) => { e.stopPropagation(); closeRow(); fire(row, a.ev); }; u.appendChild(b); });
-    row.parentNode.style.position = 'relative'; row.parentNode.style.overflow = 'hidden';
-    row.parentNode.insertBefore(u, row); row.style.position = 'relative'; row.style.zIndex = '1';
+    u.style.top = row.offsetTop + 'px'; u.style.height = row.offsetHeight + 'px'; u.style.left = row.offsetLeft + 'px'; u.style.width = row.offsetWidth + 'px';
+    acts.forEach((a) => { const b = document.createElement('button'); b.innerHTML = (ICON[a.ev] || '') + '<span>' + a.label + '</span>'; b.className = a.danger ? 'dg' : side === 'r' ? 'ok' : 'nt'; b.onclick = (ev) => { ev.stopPropagation(); closeRow(); fire(row, a.ev); }; u.appendChild(b); });
+    par.insertBefore(u, row); row.style.position = 'relative'; row.style.zIndex = '1';
+    progress(u, 0, false);
     return u;
   }
   let g = null;
@@ -551,7 +565,17 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
         try { g.el.setPointerCapture(e.pointerId); } catch (_) {}
       } else if (Math.abs(dy) > 10) { g = null; return; }
     }
-    if (g && g.dir) { const v = g.dir === 'r' ? Math.max(0, dx) : Math.min(0, dx); g.el.style.transition = 'none'; g.el.style.transform = 'translateX(' + v + 'px)'; g.dx = v; e.preventDefault(); }
+    if (g && g.dir) {
+      let v = g.dir === 'r' ? Math.max(0, dx) : Math.min(0, dx);
+      const reveal = g.reveal || (g.reveal = Array.from(g.under.children).reduce((s, b) => s + b.offsetWidth + 8, 8));
+      const lim = g.dir === 'r' ? 120 : (g.el.dataset.full ? g.el.offsetWidth : reveal);
+      if (Math.abs(v) > lim) v = Math.sign(v) * (lim + (Math.abs(v) - lim) * 0.25);
+      g.el.style.transition = 'none'; g.el.style.transform = 'translateX(' + v + 'px)'; g.dx = v;
+      progress(g.under, Math.abs(v) / (g.dir === 'r' ? 90 : reveal), false);
+      const armed = g.dir === 'r' ? v > 90 : !!g.el.dataset.full && v < -g.el.offsetWidth * 0.5;
+      g.under.classList.toggle('armed', armed);
+      e.preventDefault();
+    }
   }, { passive: false });
   const end = (e) => {
     if (!g || (e.pointerId !== g.id)) return;
@@ -571,13 +595,17 @@ html[data-theme=dark] #app [fill="#ECEAE5"]{fill:var(--cut)}
       return;
     }
     if (!gg.dir) return;
-    const row = gg.el, dx = gg.dx || 0, w = row.offsetWidth;
-    row.style.transition = 'transform .2s ease';
-    if (gg.dir === 'r') { row.style.transform = ''; setTimeout(() => gg.under.remove(), 200); if (dx > 90) fire(row, gg.acts[0].ev); return; }
+    const row = gg.el, dx = gg.dx || 0, w = row.offsetWidth, u = gg.under;
+    row.style.transition = SPRING;
+    if (gg.dir === 'r') { row.style.transform = ''; progress(u, 0, true); setTimeout(() => u.remove(), 380); if (dx > 90) setTimeout(() => fire(row, gg.acts[0].ev), 160); return; }
     const full = row.dataset.full;
-    if (full && dx < -w * 0.6) { row.style.transform = 'translateX(-100%)'; setTimeout(() => { gg.under.remove(); fire(row, full); }, 180); return; }
-    if (dx < -50) { const ww = Array.from(gg.under.children).reduce((s, b) => s + b.offsetWidth, 0) - 16; row.style.transform = 'translateX(' + (-ww) + 'px)'; openRow = { row, under: gg.under }; }
-    else { row.style.transform = ''; setTimeout(() => gg.under.remove(), 200); }
+    if (full && dx < -w * 0.5) {
+      row.style.transform = 'translateX(-100%)'; u.classList.add('armed');
+      const h = row.offsetHeight; setTimeout(() => { u.style.transition = row.style.transition = 'height .26s ease, opacity .2s ease'; u.style.opacity = '0'; row.style.overflow = 'hidden'; row.style.height = h + 'px'; void row.offsetHeight; row.style.height = '0px'; row.style.paddingTop = row.style.paddingBottom = '0px'; }, 200);
+      setTimeout(() => { u.remove(); fire(row, full); }, 470); return;
+    }
+    if (dx < -40) { row.style.transform = 'translateX(' + (-gg.reveal) + 'px)'; progress(u, 1, true); openRow = { row, under: u }; }
+    else { row.style.transform = ''; progress(u, 0, true); setTimeout(() => u.remove(), 380); }
   };
   app.addEventListener('pointerup', end); app.addEventListener('pointercancel', (e) => { if (g && g.t === 'row' && g.dir) end(e); else if (g) { clearTimeout(g.lp); if (g.el && g.t !== 'row') { g.el.style.transform = ''; g.el.style.boxShadow = ''; } g = null; } });
   // compact FAB + top glass on scroll
