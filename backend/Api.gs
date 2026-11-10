@@ -125,7 +125,8 @@ function readAll_() {
   });
 
   const catVals = cat.getRange(2, 1, Math.max(1, cat.getLastRow() - 1), 3).getValues();
-  const cats = catVals.filter((r) => r[0]).map((r) => ({ name: String(r[0]), group: String(r[1]), budget: num_(r[2]) }));
+  const cats = []; catVals.forEach((r, i) => { if (r[0]) cats.push({ row: i + 2, name: String(r[0]), group: String(r[1]), budget: num_(r[2]) }); });
+  const emergency = readEmergency_(dash);
 
   const pct = (v) => (typeof v === 'number' ? (v > 1 ? v / 100 : v) : null);
   const targets = { needs: pct(bud.getRange('B4').getValue()), wants: pct(bud.getRange('B5').getValue()), savings: pct(bud.getRange('B6').getValue()) };
@@ -136,12 +137,29 @@ function readAll_() {
     cashNow: num_(dash.getRange('B4').getValue()),
     expectedEnd: num_(dash.getRange('B5').getValue()),
     netWorth: num_(dash.getRange('B8').getValue()),
-    accounts: accounts, tx: txs, rec: recs, cats: cats, targets: targets,
+    accounts: accounts, tx: txs, rec: recs, cats: cats, targets: targets, emergency: emergency,
     sheetUrl: ss.getUrl()
   };
 }
 
+function readEmergency_(dash) {
+  const f = String(dash.getRange('B9').getFormula() || '');
+  const names = []; let m; const re = /"([^"]+)"/g;
+  while ((m = re.exec(f))) if (names.indexOf(m[1]) < 0) names.push(m[1]);
+  const c = String(dash.getRange('C9').getFormula() || dash.getRange('C9').getValue() || '');
+  const mm = c.match(/goal:\s*(\d+)/);
+  return { accounts: names, months: mm ? Number(mm[1]) : 6 };
+}
+
 // ---------- writing ----------
+function renameCategory_(oldName, newName) {
+  const ss = ss_();
+  const tx = ss.getSheetByName(SALDO.TX), rec = ss.getSheetByName(SALDO.REC);
+  const r1 = tx.getRange(2, 3, Math.max(1, tx.getLastRow() - 1), 1), v1 = r1.getValues();
+  let c1 = false; v1.forEach((x) => { if (String(x[0]) === oldName) { x[0] = newName; c1 = true; } }); if (c1) r1.setValues(v1);
+  const r2 = rec.getRange(SALDO.REC_FIRST, 2, SALDO.REC_LAST - SALDO.REC_FIRST + 1, 1), v2 = r2.getValues();
+  let c2 = false; v2.forEach((x) => { if (String(x[0]) === oldName) { x[0] = newName; c2 = true; } }); if (c2) r2.setValues(v2);
+}
 function renameEverywhere_(oldName, newName) {
   const ss = ss_();
   const tx = ss.getSheetByName(SALDO.TX), rec = ss.getSheetByName(SALDO.REC);
@@ -307,6 +325,63 @@ const ACTIONS_ = {
     if (countUses_(name) > 0) throw new Error(name + ' has entries in Transactions or Plan, so it can only be archived.');
     acc.getRange(b.row, 1, 1, 4).clearContent();
     acc.getRange(b.row, 8, 1, Math.min(8, acc.getMaxColumns() - 7)).clearContent();
+    return {};
+  },
+  setTargets: function (b) {
+    const bud = ss_().getSheetByName(SALDO.BUD);
+    const v = [b.needs, b.wants, b.savings].map((x) => Math.max(0, Math.min(100, Number(x) || 0)));
+    if (v[0] + v[1] + v[2] !== 100) throw new Error('The three targets have to add up to 100%.');
+    bud.getRange('B4:B6').setValues(v.map((x) => [x / 100]));
+    return {};
+  },
+  saveCategory: function (b) {
+    const cat = ss_().getSheetByName(SALDO.CAT);
+    const name = String(b.name || '').trim();
+    if (!name) throw new Error('Give the category a name.');
+    const groups = ['Needs', 'Wants', 'Savings', 'Income', 'Internal transfer'];
+    const group = groups.indexOf(b.group) >= 0 ? b.group : 'Wants';
+    const last = Math.max(2, cat.getLastRow());
+    const vals = cat.getRange(2, 1, last - 1, 1).getValues().map((r) => String(r[0]).trim());
+    const clash = vals.findIndex((x, i) => x.toLowerCase() === name.toLowerCase() && (i + 2) !== b.row);
+    if (clash >= 0) throw new Error('There is already a category called ' + name + '.');
+    let row = b.row;
+    if (row) {
+      const old = String(cat.getRange(row, 1).getValue());
+      if (old !== b.oldName) throw new Error('Categories changed in the sheet. Refresh and try again.');
+      if (old !== name) renameCategory_(old, name);
+    } else {
+      const free = vals.indexOf('');
+      row = free >= 0 ? free + 2 : last + 1;
+    }
+    cat.getRange(row, 1, 1, 2).setValues([[name, group]]);
+    if (b.budget !== undefined) cat.getRange(row, 3).setValue(Number(b.budget) > 0 ? Number(b.budget) : '');
+    return { row: row };
+  },
+  setBudgets: function (b) {
+    const cat = ss_().getSheetByName(SALDO.CAT);
+    (b.items || []).forEach((it) => {
+      if (String(cat.getRange(it.row, 1).getValue()) !== it.name) throw new Error('Categories changed in the sheet. Refresh and try again.');
+      cat.getRange(it.row, 3).setValue(Number(it.budget) > 0 ? Number(it.budget) : '');
+    });
+    return {};
+  },
+  removeCategory: function (b) {
+    const ss = ss_(), cat = ss.getSheetByName(SALDO.CAT);
+    if (String(cat.getRange(b.row, 1).getValue()) !== b.name) throw new Error('Categories changed in the sheet. Refresh and try again.');
+    const tx = ss.getSheetByName(SALDO.TX), rec = ss.getSheetByName(SALDO.REC);
+    const used = tx.getRange(2, 3, Math.max(1, tx.getLastRow() - 1), 1).getValues().some((r) => r[0] === b.name) || rec.getRange(SALDO.REC_FIRST, 2, SALDO.REC_LAST - SALDO.REC_FIRST + 1, 1).getValues().some((r) => r[0] === b.name);
+    if (used) throw new Error(b.name + ' is used in your entries, so it cannot be deleted. You can rename it.');
+    cat.getRange(b.row, 1, 1, 3).clearContent();
+    return {};
+  },
+  setEmergency: function (b) {
+    const dash = ss_().getSheetByName(SALDO.DASH);
+    const names = (b.accounts || []).map((x) => String(x).replace(/"/g, '')).filter(Boolean);
+    const months = Math.max(1, Math.min(36, Number(b.months) || 6));
+    const sum = names.length ? names.map((n) => 'SUMIFS(Accounts!E2:E60,Accounts!A2:A60,"' + n + '")').join('+') : '0';
+    dash.getRange('B9').setFormula('=' + sum);
+    const label = names.length ? names.join(' + ') : 'No accounts chosen';
+    dash.getRange('C9').setFormula('=IF(C14+C15=0,"' + label + '","' + label + ' · "&TEXT(B9/(C14+C15),"0.0")&" months of spending (goal: ' + months + ')")');
     return {};
   },
   closeMonth: function () {
