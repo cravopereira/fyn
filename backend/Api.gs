@@ -121,7 +121,7 @@ function readAll_() {
   const accounts = [];
   accVals.forEach((r, i) => {
     if (!r[0]) return;
-    accounts.push({ row: i + 2, name: String(r[0]), type: String(r[1]), balanceApp: num_(r[2]), balanceDate: ymd_(r[3]), balanceNow: num_(r[4]) || 0, expectedEnd: num_(r[5]), limit: num_(r[7]), available: num_(r[8]), invested: (r[10] !== '' && r[10] !== null) ? num_(r[10]) : num_(r[9]), profit: num_(r[11]), note: String(r[12] || ''), colour: String(r[13] || ''), archived: r[14] === true });
+    accounts.push({ row: i + 2, name: String(r[0]), type: String(r[1]), balanceApp: num_(r[2]), balanceDate: ymd_(r[3]), balanceNow: num_(r[4]) || 0, expectedEnd: num_(r[5]), limit: num_(r[7]), available: num_(r[8]), invested: num_(r[9]), investedTotal: (r[10] !== '' && r[10] !== null) ? num_(r[10]) : null, profit: num_(r[11]), note: String(r[12] || ''), colour: String(r[13] || ''), archived: r[14] === true });
   });
 
   const catVals = cat.getRange(2, 1, Math.max(1, cat.getLastRow() - 1), 3).getValues();
