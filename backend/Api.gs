@@ -174,6 +174,12 @@ function renameEverywhere_(oldName, newName) {
     let ch = false; v.forEach((x) => { if (String(x[0]) === oldName) { x[0] = newName; ch = true; } });
     if (ch) r.setValues(v);
   });
+  // The emergency fund formula on the Dashboard names accounts too.
+  const dash = ss.getSheetByName(SALDO.DASH);
+  if (dash) {
+    const e = readEmergency_(dash);
+    if (e.accounts.indexOf(oldName) >= 0) ACTIONS_.setEmergency({ accounts: e.accounts.map((n) => (n === oldName ? newName : n)), months: e.months });
+  }
 }
 function countUses_(name) {
   const ss = ss_();
