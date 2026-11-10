@@ -121,7 +121,7 @@ function readAll_() {
   const accounts = [];
   accVals.forEach((r, i) => {
     if (!r[0]) return;
-    accounts.push({ row: i + 2, name: String(r[0]), type: String(r[1]), balanceApp: num_(r[2]), balanceDate: ymd_(r[3]), balanceNow: num_(r[4]) || 0, expectedEnd: num_(r[5]), limit: num_(r[7]), available: num_(r[8]), invested: num_(r[9]), profit: num_(r[11]), note: String(r[12] || ''), colour: String(r[13] || ''), archived: r[14] === true });
+    accounts.push({ row: i + 2, name: String(r[0]), type: String(r[1]), balanceApp: num_(r[2]), balanceDate: ymd_(r[3]), balanceNow: num_(r[4]) || 0, expectedEnd: num_(r[5]), limit: num_(r[7]), available: num_(r[8]), invested: (r[10] !== '' && r[10] !== null) ? num_(r[10]) : num_(r[9]), profit: num_(r[11]), note: String(r[12] || ''), colour: String(r[13] || ''), archived: r[14] === true });
   });
 
   const catVals = cat.getRange(2, 1, Math.max(1, cat.getLastRow() - 1), 3).getValues();
@@ -288,6 +288,13 @@ const ACTIONS_ = {
   setBalance: function (b) {
     const acc = ss_().getSheetByName(SALDO.ACC);
     if (String(acc.getRange(b.row, 1).getValue()) !== b.name) throw new Error('Accounts changed in the sheet. Refresh and try again.');
+    // Investments: money put in since the last check moves into "Invested to date" first,
+    // so the new date does not make those deposits look like profit.
+    const type = String(acc.getRange(b.row, 2).getValue());
+    if (type === 'Investment' || type === 'Crypto') {
+      const total = acc.getRange(b.row, 11).getValue();
+      if (total !== '' && total !== null) acc.getRange(b.row, 10).setValue(Number(total) || 0);
+    }
     acc.getRange(b.row, 3).setValue(Number(b.value));
     const t = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
     acc.getRange(b.row, 4).setFormula(dateFormula_(t));
