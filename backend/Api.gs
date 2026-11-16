@@ -61,8 +61,16 @@ function runAction_(body) {
   try {
     const fn = ACTIONS_[body.action];
     if (!fn) throw new Error('Unknown action');
+    // The same request id twice (a retry, a double tap) must not write twice: answer with the first result.
+    const rid = body.rid ? 'rid:' + String(body.rid).slice(0, 40) : '';
+    const cache = CacheService.getScriptCache();
+    if (rid) {
+      const hit = cache.get(rid);
+      if (hit) { const again = JSON.parse(hit); again.data = readAll_(); again.duplicate = true; return again; }
+    }
     const result = fn(body) || {};
     SpreadsheetApp.flush();
+    if (rid) { try { cache.put(rid, JSON.stringify(result), 21600); } catch (e) {} }
     result.data = readAll_();
     return result;
   } finally { lock.releaseLock(); }
