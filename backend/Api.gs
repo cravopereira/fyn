@@ -17,7 +17,8 @@ const SALDO = {
   KEY_PROP: 'SALDO_KEY',
   TX: 'Transactions', REC: 'Recurring', ACC: 'Accounts', CAT: 'Categories', BUD: 'Budget', DASH: 'Dashboard',
   REC_FIRST: 5, REC_LAST: 39,
-  NOTE_COL: 10 // J in Transactions
+  NOTE_COL: 10, // J in Transactions
+  PAID_ON_COL: 18 // R in Recurring: the day it was actually paid
 };
 
 function createAppKey() {
@@ -97,6 +98,10 @@ function checkKey_(key) {
 function ss_() { return SpreadsheetApp.getActive(); }
 function tz_() { return ss_().getSpreadsheetTimeZone(); }
 function ymd_(d) { return d instanceof Date ? Utilities.formatDate(d, tz_(), 'yyyy-MM-dd') : ''; }
+function ensurePaidOnColumn_(rec) {
+  if (rec.getMaxColumns() < SALDO.PAID_ON_COL) rec.insertColumnsAfter(rec.getMaxColumns(), SALDO.PAID_ON_COL - rec.getMaxColumns());
+  if (rec.getRange(4, SALDO.PAID_ON_COL).getValue() === '') rec.getRange(4, SALDO.PAID_ON_COL).setValue('Paid on');
+}
 function num_(v) { return typeof v === 'number' ? v : (v === '' || v == null ? null : Number(String(v).replace(/[^0-9.\-]/g, '')) || null); }
 
 function readAll_() {
@@ -114,14 +119,14 @@ function readAll_() {
   });
 
   const open = rec.getRange('B3').getValue();
-  const recVals = rec.getRange(SALDO.REC_FIRST, 1, SALDO.REC_LAST - SALDO.REC_FIRST + 1, Math.min(17, rec.getMaxColumns())).getValues();
+  const recVals = rec.getRange(SALDO.REC_FIRST, 1, SALDO.REC_LAST - SALDO.REC_FIRST + 1, Math.min(SALDO.PAID_ON_COL, rec.getMaxColumns())).getValues();
   const recs = [];
   recVals.forEach((r, i) => {
     if (!r[0]) return;
     let day = 1;
     if (r[5] instanceof Date) day = Number(Utilities.formatDate(r[5], tz_(), 'd'));
     else if (Number(r[5]) > 0) day = Number(r[5]);
-    recs.push({ row: SALDO.REC_FIRST + i, desc: String(r[0]), cat: String(r[1]), from: String(r[2]), to: String(r[3]), amount: num_(r[4]) || 0, day: day, paid: r[6] === true, varies: r[16] === true });
+    recs.push({ row: SALDO.REC_FIRST + i, desc: String(r[0]), cat: String(r[1]), from: String(r[2]), to: String(r[3]), amount: num_(r[4]) || 0, day: day, paid: r[6] === true, varies: r[16] === true, paidOn: r[6] === true ? ymd_(r[SALDO.PAID_ON_COL - 1]) : '' });
   });
 
   const accLast = Math.max(2, acc.getLastRow());
@@ -274,6 +279,13 @@ const ACTIONS_ = {
     if (String(rec.getRange(b.row, 1).getValue()) !== b.desc) throw new Error('Plan changed in the sheet. Refresh and try again.');
     if (b.amount != null) rec.getRange(b.row, 5).setValue(Number(b.amount));
     rec.getRange(b.row, 7).setValue(b.paid === true);
+    ensurePaidOnColumn_(rec);
+    const cell = rec.getRange(b.row, SALDO.PAID_ON_COL);
+    if (b.paid === true) {
+      const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(b.paidOn)) ? String(b.paidOn) : Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+      const p = iso.split('-').map(Number);
+      cell.setFormula('=DATE(' + p[0] + ',' + p[1] + ',' + p[2] + ')').setNumberFormat('dd/mm/yyyy');
+    } else cell.clearContent();
     return {};
   },
   saveRec: function (b) {
@@ -283,7 +295,7 @@ const ACTIONS_ = {
     const y = Number(Utilities.formatDate(open, tz_(), 'yyyy')), m = Number(Utilities.formatDate(open, tz_(), 'M'));
     if (rec.getMaxColumns() < 17) rec.insertColumnsAfter(rec.getMaxColumns(), 17 - rec.getMaxColumns());
     if (rec.getRange(4, 17).getValue() === '') rec.getRange(4, 17).setValue('Changes each time');
-    (b.remove || []).slice().sort((p, q) => q - p).forEach((row) => { rec.getRange(row, 1, 1, 6).clearContent(); rec.getRange(row, 7).setValue(false); rec.getRange(row, 17).clearContent(); });
+    (b.remove || []).slice().sort((p, q) => q - p).forEach((row) => { rec.getRange(row, 1, 1, 6).clearContent(); rec.getRange(row, 7).setValue(false); rec.getRange(row, 17).clearContent(); if (rec.getMaxColumns() >= SALDO.PAID_ON_COL) rec.getRange(row, SALDO.PAID_ON_COL).clearContent(); });
     (b.rows || []).forEach((r) => {
       const row = r.row || firstEmptyRecRow_(rec);
       const day = Math.min(Number(r.day) || 1, new Date(y, m, 0).getDate());

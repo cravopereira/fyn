@@ -7,7 +7,8 @@
  *   - On a computer: menu Finances > Close month (asks for confirmation).
  *
  * What it does:
- *   1. Copies every ticked recurring item into Transactions, dated in the open month,
+ *   1. Copies every ticked recurring item into Transactions, dated the day it was paid
+ *      (column R, "Paid on") or, if that is empty, its usual day in the open month,
  *      marked as paid. Balances do not change: the money just moves from one list to the other.
  *   2. Clears all the ticks in Recurring.
  *   3. Moves the open month (Recurring B3) and the Dashboard month to the next month.
@@ -17,6 +18,7 @@
 const OPEN_MONTH_CELL = 'B3';
 const CLOSE_BOX_CELL = 'G3';
 const ITEMS_RANGE = 'A5:G39';
+const PAID_ON_COL = 18; // R: the day it was actually paid
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -66,16 +68,22 @@ function closeMonth() {
 
   // Ticked items become paid transactions.
   const rows = rec.getRange(ITEMS_RANGE).getValues();
+  const hasPaidOn = rec.getMaxColumns() >= PAID_ON_COL;
+  const paidOn = hasPaidOn ? rec.getRange(5, PAID_ON_COL, 35, 1).getValues() : [];
   const out = [];
-  rows.forEach(function (r) {
+  rows.forEach(function (r, i) {
     const description = r[0], paid = r[6];
     if (!description || paid !== true) return;
     let day = 1;
     if (r[5] instanceof Date) day = Number(Utilities.formatDate(r[5], tz, 'd'));
     else if (Number(r[5]) > 0) day = Number(r[5]);
     day = Math.min(day, daysInMonth);
+    const on = hasPaidOn ? paidOn[i][0] : '';
+    const when = on instanceof Date
+      ? '=DATE(' + Utilities.formatDate(on, tz, 'yyyy') + ',' + Number(Utilities.formatDate(on, tz, 'M')) + ',' + Number(Utilities.formatDate(on, tz, 'd')) + ')'
+      : '=DATE(' + year + ',' + month + ',' + day + ')';
     out.push([
-      '=DATE(' + year + ',' + month + ',' + day + ')', // date as a formula: no time-zone surprises
+      when, // date as a formula: no time-zone surprises
       description, // A Description
       r[1],        // Category
       r[2],        // From
@@ -95,6 +103,7 @@ function closeMonth() {
   // Clear the ticks (only on rows that have an item).
   const ticks = rows.map(function (r) { return [r[0] ? false : r[6]]; });
   rec.getRange('G5:G39').setValues(ticks);
+  if (hasPaidOn) rec.getRange(5, PAID_ON_COL, 35, 1).clearContent();
 
   // Move to the next month.
   const nextYear = month === 12 ? year + 1 : year;
@@ -139,6 +148,7 @@ function rollWeekly_(y, m) {
       } else {
         rec.getRange(row, 1, 1, 6).clearContent();
         rec.getRange(row, 7).setValue(false);
+        if (rec.getMaxColumns() >= PAID_ON_COL) rec.getRange(row, PAID_ON_COL).clearContent();
       }
     });
     for (let k = g.length; k < days.length; k++) {
