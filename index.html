@@ -144,6 +144,19 @@ html[data-theme=dark] [aria-label=Colour] button[aria-checked=true]{box-shadow:0
 .ob-check i{width:22px;height:22px;border-radius:50%;border:2px solid var(--line,#E4E2DC);display:flex;align-items:center;justify-content:center;flex:none;color:transparent;box-sizing:border-box}
 .ob-check.done i{background:var(--green,#1B6B43);border-color:var(--green,#1B6B43);color:#fff}
 #setup #setupBack{margin-bottom:-6px}
+.ob-file{display:flex;gap:14px;align-items:center;padding:18px 16px;border-radius:20px;background:var(--card,#fff);border:1.5px dashed var(--line,#E4E2DC);color:var(--ink,#111);cursor:pointer;position:relative}
+.ob-file input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.ob-file .ic{width:44px;height:44px;border-radius:14px;background:var(--fill,#F0EEE9);display:flex;align-items:center;justify-content:center;flex:none}
+.ob-file strong{display:block;font-weight:600;font-size:16px}.ob-file span span{display:block;font-size:13px;color:var(--ink2,#5C5B56);margin-top:2px}
+.ob-err{color:var(--red,#B42318);font-size:14px;font-weight:500}
+.ob-csv{overflow-x:auto;background:var(--card,#fff);border-radius:16px;border:1px solid var(--line,#E4E2DC)}
+.ob-csv table{border-collapse:collapse;font-size:13px;min-width:100%}
+.ob-csv td,.ob-csv th{padding:8px 10px;border-bottom:1px solid var(--line2,#F0EEE9);white-space:nowrap;text-align:left;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.ob-csv td.skip{color:var(--ink3,#8E8D88)}
+.ob-csv th select{height:34px;border-radius:8px;border:1px solid var(--line,#E4E2DC);background:var(--bg,#F4F3EF);font:600 13px Geist,system-ui,sans-serif;color:var(--ink,#111);padding:0 4px}
+.ob-catrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line2,#F0EEE9)}.ob-catrow:last-child{border-bottom:0}
+.ob-catrow .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.ob-catrow b{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ob-catrow .t span{font-size:12px;color:var(--ink2,#5C5B56)}
+.ob-catrow select{flex:none;max-width:46%;height:38px;border-radius:10px;border:1px solid var(--line,#E4E2DC);background:var(--bg,#F4F3EF);font:500 14px Geist,system-ui,sans-serif;color:var(--ink,#111);padding:0 6px}
 .ob-mini{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2,#5C5B56)}
 #loading{align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -961,17 +974,92 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
     tick: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
     close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
   };
+  var OFF = function () { return A.path === 'import' ? 2 : 0; };
   var mark = '<div class="ob-logo" aria-hidden="true"><i></i><i></i><i></i></div>';
   var head = function (step, total, back) { return '<button class="ob-back" data-go="' + back + '" aria-label="Back">' + I.back + '</button>' + (total ? '<div class="ob-prog" aria-label="Step ' + step + ' of ' + total + '">' + Array.from({ length: total }, function (_, i) { return '<i class="' + (i < step ? 'on' : '') + '"></i>'; }).join('') + '</div>' : ''); };
+
+  // ---------- Bring my data: CSV ----------
+  var CATN = ['Salary', 'Other income', 'Refunds', 'Rent', 'Mortgage', 'Electricity', 'Water', 'Gas', 'Internet', 'Phone', 'Groceries', 'Insurance', 'Health & pharmacy', 'Transport', 'Car', 'Bank fees', 'Other payments', 'Restaurants', 'Shopping', 'Subscriptions', 'Gym', 'Travel', 'Personal care', 'Gifts', 'Miscellaneous', 'Emergency fund', 'Investing', 'Card payment', 'Cash withdrawal', 'Account transfer'];
+  var RULES = [[/salar|vencimento|ordenado/, 'Salary'], [/continente|pingo doce|lidl|aldi|minipreco|mercadona|auchan|intermarche|supermerc|el corte ingles super/, 'Groceries'], [/\bedp\b|endesa|iberdrola|goldenergy|electricidade/, 'Electricity'], [/epal|aguas d|smas|agua/, 'Water'], [/galp|repsol|\bbp\b|cepsa|prio|combust/, 'Car'], [/uber(?! eats)|bolt(?! food)|metro|\bcp\b|carris|via verde|portage/, 'Transport'], [/netflix|spotify|disney|hbo|apple\.com|youtube|prime video|icloud/, 'Subscriptions'], [/farmac|clinica|hospital|\bcuf\b|lusiadas|wells/, 'Health & pharmacy'], [/restaur|\bcafe|pastelaria|mcdonald|burger|pizza|glovo|uber eats|bolt food|sushi|tasca/, 'Restaurants'], [/\bmeo\b|\bnos\b|vodafone|nowo|digi/, 'Internet'], [/renda|arrendamento/, 'Rent'], [/prestacao|credito hab|emprestimo/, 'Mortgage'], [/seguro|fidelidade|tranquilidade|ageas|allianz/, 'Insurance'], [/levantamento|\batm\b/, 'Cash withdrawal'], [/comiss|imposto do selo|manutencao/, 'Bank fees'], [/zara|primark|fnac|worten|ikea|amazon|decathlon/, 'Shopping'], [/ginasio|fitness|holmes|solinca/, 'Gym'], [/devolu|reembolso|refund/, 'Refunds']];
+  var norm = function (x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  var guessCat = function (desc, amt) { var d = norm(desc); for (var i = 0; i < RULES.length; i++) if (RULES[i][0].test(d)) { var c = RULES[i][1]; if (amt > 0 && ['Salary', 'Refunds'].indexOf(c) < 0) return 'Other income'; if (amt < 0 && (c === 'Salary' || c === 'Refunds')) return 'Miscellaneous'; return c; } return amt > 0 ? 'Other income' : 'Miscellaneous'; };
+  var splitRow = function (line, dl) { var out = [], cur = '', q = false; for (var i = 0; i < line.length; i++) { var ch = line[i]; if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; } else if (ch === '"') q = true; else if (ch === dl) { out.push(cur.trim()); cur = ''; } else cur += ch; } out.push(cur.trim()); return out; };
+  var parseAmt = function (v) { var s0 = String(v || '').replace(/[€\s ]/g, ''); if (!s0) return NaN; var neg = /^-|^\(|-$|D$/i.test(s0); s0 = s0.replace(/[()+\-]|[DC]$/gi, ''); if (/,\d{1,2}$/.test(s0)) s0 = s0.replace(/\./g, '').replace(',', '.'); else s0 = s0.replace(/,/g, ''); var n = parseFloat(s0); return isFinite(n) ? (neg ? -n : n) : NaN; };
+  var parseDate = function (v) { var s0 = String(v || '').trim(), m; if ((m = s0.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]); if ((m = s0.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))) { var y = +m[3]; if (y < 100) y += 2000; return y + '-' + pad(+m[2]) + '-' + pad(+m[1]); } return ''; };
+  var isDate = function (v) { return !!parseDate(v); };
+  function parseCsv(text) {
+    var lines = text.replace(/\r/g, '').split('\n').filter(function (l) { return l.trim(); });
+    var dl = [';', ',', '\t'].map(function (d) { return [d, lines.slice(0, 30).reduce(function (t, l) { return t + (l.split(d).length - 1); }, 0)]; }).sort(function (a, b) { return b[1] - a[1]; })[0][0];
+    var rows = lines.map(function (l) { return splitRow(l, dl); });
+    var counts = {}; rows.forEach(function (r) { if (r.length >= 3) counts[r.length] = (counts[r.length] || 0) + 1; });
+    var n = +Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0] || 0;
+    if (n < 3) return null;
+    var body = rows.filter(function (r) { return r.length === n; });
+    var hdr = body.length && !body[0].some(isDate) ? body.shift() : null;
+    return { header: hdr, rows: body, n: n };
+  }
+  function guessMap(P) {
+    var map = [], H = (P.header || []).map(norm), sample = P.rows.slice(0, 20);
+    for (var c = 0; c < P.n; c++) {
+      var h = H[c] || '', vals = sample.map(function (r) { return r[c]; });
+      var dates = vals.filter(isDate).length, nums = vals.filter(function (v) { return !isNaN(parseAmt(v)) && /\d/.test(v); }).length;
+      var role = 'skip';
+      if (/data mov|^data$|date|data valor/.test(h) || (!h && dates > vals.length * 0.7)) role = 'date';
+      else if (/descri|movimento|detail|concept|description|refer/.test(h)) role = 'desc';
+      else if (/debito|debit|saida|out/.test(h)) role = 'out';
+      else if (/credito|credit|entrada|\bin\b/.test(h)) role = 'in';
+      else if (/montante|valor|amount|importe|quantia/.test(h)) role = 'amount';
+      else if (/categor/.test(h)) role = 'cat';
+      else if (/saldo|balance/.test(h)) role = 'skip';
+      map.push({ role: role, dates: dates, nums: nums });
+    }
+    if (!map.some(function (m) { return m.role === 'date'; })) { var bd = map.reduce(function (b, m, i) { return m.dates > (b < 0 ? 0 : map[b].dates) ? i : b; }, -1); if (bd >= 0) map[bd].role = 'date'; }
+    if (!map.some(function (m) { return m.role === 'desc'; })) { var bt = -1, bl = 0; for (var k = 0; k < P.n; k++) { if (map[k].role !== 'skip') continue; var len = sample.reduce(function (t, r) { return t + (isNaN(parseAmt(r[k])) ? String(r[k]).length : 0); }, 0); if (len > bl) { bl = len; bt = k; } } if (bt >= 0) map[bt].role = 'desc'; }
+    if (!map.some(function (m) { return m.role === 'amount' || m.role === 'out' || m.role === 'in'; })) { var ba = map.findIndex(function (m) { return m.role === 'skip' && m.nums > sample.length * 0.6; }); if (ba >= 0) map[ba].role = 'amount'; }
+    var seen = {}; map.forEach(function (m) { if (m.role !== 'skip' && m.role !== 'cat') { if (seen[m.role]) m.role = 'skip'; seen[m.role] = 1; } });
+    return map.map(function (m) { return m.role; });
+  }
+  function readTx() {
+    var P = A.csv, M = A.map, out = [];
+    var col = function (r) { var i = M.indexOf(r); return i; };
+    var di = col('date'), si = col('desc'), ai = col('amount'), oi = col('out'), ii = col('in'), ci = col('cat');
+    P.rows.forEach(function (r) {
+      var d = di >= 0 ? parseDate(r[di]) : ''; if (!d) return;
+      var a = ai >= 0 ? parseAmt(r[ai]) : NaN;
+      if (isNaN(a)) { var o = oi >= 0 ? parseAmt(r[oi]) : NaN, n2 = ii >= 0 ? parseAmt(r[ii]) : NaN; a = (!isNaN(n2) && n2 ? Math.abs(n2) : 0) - (!isNaN(o) && o ? Math.abs(o) : 0); }
+      if (!a) return;
+      var desc = si >= 0 ? String(r[si]).replace(/\s+/g, ' ').trim() : '';
+      var own = ci >= 0 ? String(r[ci] || '').trim() : '';
+      out.push({ date: d, desc: desc || (a > 0 ? 'Income' : 'Payment'), amt: a, own: own });
+    });
+    return out;
+  }
+  function mkCats() {
+    var tx = readTx(), g = {};
+    tx.forEach(function (t) { var k = t.desc; if (!g[k]) g[k] = { desc: k, n: 0, sum: 0, cat: (t.own && CATN.indexOf(t.own) >= 0) ? t.own : guessCat(k, t.amt), amt: t.amt }; g[k].n++; g[k].sum += t.amt; });
+    A.tx = tx; A.groups = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.n - a.n || Math.abs(b.sum) - Math.abs(a.sum); });
+    // prefill income and repeating bills from what was imported
+    var sal = tx.filter(function (t) { return t.amt > 0 && (g[t.desc] || {}).cat === 'Salary'; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0];
+    if (sal && !A.inc) { A.inc = String(Math.round(sal.amt * 100) / 100).replace('.', ','); A.day = +sal.date.slice(8); }
+    if (!A.bills.length) {
+      A.groups.filter(function (x) { return x.amt < 0 && x.n >= 2 && ['Groceries', 'Restaurants', 'Car', 'Transport', 'Shopping', 'Cash withdrawal', 'Miscellaneous', 'Health & pharmacy'].indexOf(x.cat) < 0; }).forEach(function (x) {
+        var ts = tx.filter(function (t) { return t.desc === x.desc; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+        var months = {}; ts.forEach(function (t) { months[t.date.slice(0, 7)] = 1; });
+        if (Object.keys(months).length < 2 || A.bills.length >= 8) return;
+        var nm = x.desc.length > 24 ? x.desc.slice(0, 24).trim() : x.desc;
+        A.bills.push({ preset: '', name: nm, amount: String(Math.abs(ts[0].amt)).replace('.', ','), day: +ts[0].date.slice(8), cat: x.cat, paid: null });
+      });
+    }
+  }
 
   function view() {
     var s = A.step;
     if (s === 'welcome') return '<div class="ob-col" style="gap:28px">' +
       '<div class="ob-col" style="gap:16px;margin-top:20px">' + mark + '<h1>Know what you can spend before payday</h1><p class="ob-mut">Answer three questions and Fyn works out what is safe to spend until your next income.</p></div>' +
       '<div class="ob-col" style="gap:10px"><p class="ob-label">How do you want to start?</p>' +
-      '<button class="ob-choice primary" data-go="privacy"><span class="ic">' + I.plus + '</span><span><strong>Start from scratch</strong><span>Three questions, about a minute.</span></span></button>' +
+      '<button class="ob-choice primary" data-path="scratch"><span class="ic">' + I.plus + '</span><span><strong>Start from scratch</strong><span>Three questions, about a minute.</span></span></button>' +
       '<button class="ob-choice" data-go="connect"><span class="ic">' + I.sheet + '</span><span><strong>I already have a Fyn sheet</strong><span>Connect it with its link and key.</span></span></button>' +
-      '<button class="ob-choice" disabled aria-disabled="true"><span class="ic">' + I.upload + '</span><span><strong>Bring my data</strong><span>Coming soon: import the file your bank lets you download.</span></span></button>' +
+      '<button class="ob-choice" data-path="import"><span class="ic">' + I.upload + '</span><span><strong>Bring my data</strong><span>From the file your bank lets you download.</span></span></button>' +
       '</div></div>';
     if (s === 'privacy') return '<div class="ob-col" style="gap:22px">' + head(0, 0, 'welcome') +
       '<div class="ob-col" style="gap:10px"><h1>For now, your numbers stay on this phone</h1><p class="ob-mut">No account and no sign in. You can move everything to a Google Sheet later.</p></div>' +
@@ -979,14 +1067,39 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
       '<div class="ob-fact"><span class="ic">' + I.phone + '</span><div><b>Only on this phone</b><p>Fyn saves what you type here, in this app. Nothing is sent anywhere. If you delete the app, it is gone.</p></div></div>' +
       '<div class="ob-fact"><span class="ic">' + I.link + '</span><div><b>A Google Sheet later</b><p>Soon Fyn can create a sheet in your Google Drive and move everything there, so it is backed up and yours.</p></div></div>' +
       '<div class="ob-fact"><span class="ic">' + I.lock + '</span><div><b>No bank logins</b><p>Fyn never connects to your bank. You add what you spend.</p></div></div>' +
-      '</div><div class="ob-grow"></div><button class="ob-btn" data-go="account">Continue</button></div>';
-    if (s === 'account') return '<div class="ob-col" style="gap:20px">' + head(1, 3, 'privacy') +
+      '</div><div class="ob-grow"></div><button class="ob-btn" data-go="' + (A.path === 'import' ? 'import' : 'account') + '">Continue</button></div>';
+    if (s === 'import') return '<div class="ob-col" style="gap:20px">' + head(0, 0, 'privacy') +
+      '<div class="ob-col" style="gap:10px"><h1>Bring the file from your bank</h1><p class="ob-mut">In your bank\'s website or app, export your movements as a CSV file. Fyn reads it here, on this phone.</p></div>' +
+      '<label class="ob-file"><input type="file" id="ob-file" accept=".csv,text/csv,text/plain,application/vnd.ms-excel"><span class="ic">' + I.upload + '</span><span><strong>Choose a CSV file</strong><span>Excel files work if you save them as CSV first.</span></span></label>' +
+      (A.csvErr ? '<p class="ob-err" role="alert">' + esc(A.csvErr) + '</p>' : '') +
+      '<p class="ob-hint">Nothing is uploaded. The movements become your history; your balance comes from the next question.</p></div>';
+    if (s === 'map') {
+      var P = A.csv, R = ['date', 'desc', 'amount', 'out', 'in', 'cat', 'skip'], RL = { date: 'Date', desc: 'Description', amount: 'Amount', out: 'Money out', 'in': 'Money in', cat: 'Category', skip: 'Skip' };
+      var txs = readTx(), ok = A.map.indexOf('date') >= 0 && (A.map.indexOf('amount') >= 0 || A.map.indexOf('out') >= 0 || A.map.indexOf('in') >= 0) && txs.length > 0;
+      var ds = txs.map(function (t) { return t.date; }).sort();
+      var dl2 = function (iso) { return +iso.slice(8) + ' ' + MONTHS[+iso.slice(5, 7) - 1].slice(0, 3) + ' ' + iso.slice(0, 4); };
+      return '<div class="ob-col" style="gap:20px">' + head(1, 5, 'import') +
+        '<div class="ob-col" style="gap:10px"><h1>Which column is which?</h1><p class="ob-mut">From <b>' + esc(A.fileName) + '</b>. Fyn guessed; change anything that is wrong.</p></div>' +
+        '<div class="ob-csv"><table><thead><tr>' + A.map.map(function (r, i) { return '<th><select data-col="' + i + '" aria-label="Column ' + (i + 1) + '">' + R.map(function (o) { return '<option value="' + o + '"' + (o === r ? ' selected' : '') + '>' + RL[o] + '</option>'; }).join('') + '</select></th>'; }).join('') + '</tr></thead><tbody>' +
+        P.rows.slice(0, 4).map(function (row) { return '<tr>' + row.map(function (v, i) { return '<td class="' + (A.map[i] === 'skip' ? 'skip' : '') + '">' + esc(v) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
+        '<p class="ob-hint">' + (ok ? txs.length + ' movements from ' + dl2(ds[0]) + ' to ' + dl2(ds[ds.length - 1]) + '. Next, check the categories.' : 'Pick a Date column and an Amount column (or Money out and Money in).') + '</p>' +
+        '<div class="ob-grow"></div><button class="ob-btn" data-go="cats"' + (ok ? '' : ' disabled') + '>Continue</button></div>';
+    }
+    if (s === 'cats') {
+      var top = A.groups.slice(0, 20), rest = A.groups.length - top.length;
+      return '<div class="ob-col" style="gap:20px">' + head(2, 5, 'map') +
+        '<div class="ob-col" style="gap:10px"><h1>Check the categories</h1><p class="ob-mut">Fyn suggested these from the names. Fix what is wrong; you can change any of them later.</p></div>' +
+        '<div class="ob-card">' + top.map(function (g2, i) { return '<div class="ob-catrow"><span class="t"><b>' + esc(g2.desc) + '</b><span>' + g2.n + (g2.n === 1 ? ' time' : ' times') + ' · ' + (g2.sum > 0 ? '+' : '−') + eur(Math.abs(g2.sum)) + '</span></span><select data-gcat="' + i + '" aria-label="Category for ' + esc(g2.desc) + '">' + CATN.map(function (c) { return '<option' + (c === g2.cat ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>'; }).join('') + '</div>' +
+        (rest > 0 ? '<p class="ob-hint">' + rest + ' more names get a category the same way.</p>' : '') +
+        '<div class="ob-grow"></div><button class="ob-btn" data-go="account">Continue</button></div>';
+    }
+    if (s === 'account') return '<div class="ob-col" style="gap:20px">' + head(1 + OFF(), 3 + OFF(), A.path === 'import' ? 'cats' : 'privacy') +
       '<div class="ob-col" style="gap:10px"><h1>Where does your money sit day to day?</h1><p class="ob-mut">The account your card and salary use.</p></div>' +
       '<label class="ob-field-l">Account name<input class="ob-field" id="ob-name" value="' + esc(A.name) + '" autocomplete="off"></label>' +
       '<label class="ob-field-l">How much is in it today?<span class="ob-money"><input class="ob-field" id="ob-bal" inputmode="decimal" placeholder="0" value="' + esc(A.bal) + '" autocomplete="off"><span>€</span></span></label>' +
       '<p class="ob-hint">Open your bank app and copy the balance. Fyn starts counting from today.</p>' +
       '<div class="ob-grow"></div><button class="ob-btn" data-go="income" id="ob-next"' + (isNaN(num(A.bal)) ? ' disabled' : '') + '>Next</button></div>';
-    if (s === 'income') return '<div class="ob-col" style="gap:20px">' + head(2, 3, 'account') +
+    if (s === 'income') return '<div class="ob-col" style="gap:20px">' + head(2 + OFF(), 3 + OFF(), 'account') +
       '<div class="ob-col" style="gap:10px"><h1>How much comes in each month?</h1><p class="ob-mut">Your salary or main income, after tax.</p></div>' +
       '<label class="ob-field-l">Amount<span class="ob-money"><input class="ob-field" id="ob-inc" inputmode="decimal" placeholder="0" value="' + esc(A.inc) + '" autocomplete="off"><span>€</span></span></label>' +
       '<label class="ob-field-l">Which day does it arrive?<select class="ob-field" id="ob-day">' + dayOpts(A.day, 'The ') + '</select></label>' +
@@ -997,7 +1110,7 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
       var has = function (n) { return A.bills.some(function (b) { return b.preset === n; }); };
       var total = A.bills.reduce(function (t, b) { return t + (num(b.amount) || 0); }, 0);
       var label = open.length ? 'Answer for ' + open.map(function (b) { return esc(b.name); }).join(' and ') : A.bills.length ? 'Next' : 'I have no fixed bills';
-      return '<div class="ob-col" style="gap:20px">' + head(3, 3, 'income') +
+      return '<div class="ob-col" style="gap:20px">' + head(3 + OFF(), 3 + OFF(), 'income') +
         '<div class="ob-col" style="gap:10px"><h1>What do you pay every month?</h1><p class="ob-mut">Tap what you have. Change the amount and day if they are different.</p></div>' +
         '<div class="ob-chips">' + PRESETS.map(function (p) { return '<button class="ob-chip" aria-pressed="' + has(p[0]) + '" data-preset="' + p[0] + '">' + (has(p[0]) ? I.tick : '') + p[0] + '</button>'; }).join('') + '<button class="ob-chip dashed" data-act="other">' + I.plus + ' Other</button></div>' +
         (A.bills.length ? '<div class="ob-card">' + A.bills.map(function (b, i) {
@@ -1041,7 +1154,8 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
 
   root.addEventListener('click', function (e) {
     var t = e.target.closest('button'); if (!t || t.disabled) return;
-    if (t.dataset.go) return go(t.dataset.go);
+    if (t.dataset.path) { A.path = t.dataset.path; return go('privacy'); }
+    if (t.dataset.go) { if (t.dataset.go === 'cats' && A.step === 'map') mkCats(); return go(t.dataset.go); }
     if (t.dataset.act === 'noincome') { A.noIncome = true; A.inc = ''; return go('bills'); }
     if (t.dataset.preset) { var n = t.dataset.preset, i = A.bills.findIndex(function (b) { return b.preset === n; }); if (i >= 0) A.bills.splice(i, 1); else { var p = PRESETS.find(function (x) { return x[0] === n; }); A.bills.push({ preset: n, name: n, amount: String(p[1]), day: p[2], cat: p[3], paid: null }); } return render(true); }
     if (t.dataset.act === 'other') { var k = 1; while (A.bills.some(function (b) { return b.name === 'Bill ' + k; })) k++; A.bills.push({ preset: '', name: 'Bill ' + k, amount: '20', day: 28, cat: 'Other payments', paid: null }); return render(true); }
@@ -1066,6 +1180,11 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
   root.addEventListener('change', function (e) {
     var t = e.target;
     if (t.id === 'ob-day') A.day = +t.value;
+    if (t.id === 'ob-file' && t.files && t.files[0]) { var f = t.files[0]; A.fileName = f.name; A.csvErr = '';
+      var rd = function (enc, cb) { var fr = new FileReader(); fr.onload = function () { cb(String(fr.result || '')); }; fr.onerror = function () { cb(''); }; fr.readAsText(f, enc); };
+      rd('utf-8', function (txt) { var use = function (x) { var P2 = parseCsv(x); if (!P2 || !P2.rows.length) { A.csvErr = 'Fyn could not read a table in this file. Export it again as CSV and try once more.'; return render(); } A.csv = P2; A.map = guessMap(P2); A.bills = []; A.inc = ''; go('map'); }; if (txt.indexOf('\ufffd') >= 0) rd('windows-1252', use); else use(txt); }); }
+    if (t.dataset.col != null) { A.map[+t.dataset.col] = t.value; render(true); }
+    if (t.dataset.gcat != null) { A.groups[+t.dataset.gcat].cat = t.value; }
     if (t.dataset.day != null) { var b = A.bills[+t.dataset.day]; b.day = +t.value; if (b.day >= TD) b.paid = null; render(true); }
   });
 
@@ -1090,7 +1209,7 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
       if (x.kind === 'savings' && x.em) em.push(nn); });
     return { today: TODAY, openMonth: TODAY.slice(0, 8) + '01', startedOn: TODAY, cashNow: bal, expectedEnd: bal, netWorth: bal,
       accounts: accounts,
-      tx: [], rec: rec, cats: cats, targets: { needs: 0.5, wants: 0.3, savings: 0.2 }, sheetUrl: '', emergency: { accounts: em, months: 6 } };
+      tx: (A.path === 'import' && A.tx ? A.tx.map(function (t, i) { var g3 = (A.groups || []).find(function (x) { return x.desc === t.desc; }); var ab = Math.round(Math.abs(t.amt) * 100) / 100; return { row: i + 2, date: t.date, desc: t.desc, cat: g3 ? g3.cat : guessCat(t.desc, t.amt), from: t.amt < 0 ? acc : '', to: t.amt > 0 ? acc : '', amount: ab, paid: true, note: '' }; }) : []), rec: rec, cats: cats, targets: { needs: 0.5, wants: 0.3, savings: 0.2 }, sheetUrl: '', emergency: { accounts: em, months: 6 } };
   }
   function run() {
     [0, 1, 2].forEach(function (i) { setTimeout(function () { var el = root.querySelector('[data-s="' + i + '"]'); if (el) el.classList.add('done'); }, 450 * (i + 1)); });
