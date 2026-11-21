@@ -144,6 +144,7 @@ html[data-theme=dark] [aria-label=Colour] button[aria-checked=true]{box-shadow:0
 .ob-check i{width:22px;height:22px;border-radius:50%;border:2px solid var(--line,#E4E2DC);display:flex;align-items:center;justify-content:center;flex:none;color:transparent;box-sizing:border-box}
 .ob-check.done i{background:var(--green,#1B6B43);border-color:var(--green,#1B6B43);color:#fff}
 #setup #setupBack{margin-bottom:-6px}
+.ob-mini{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2,#5C5B56)}
 #loading{align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px}
 @keyframes sp{to{transform:rotate(360deg)}}
 #app{-webkit-tap-highlight-color:transparent}
@@ -943,7 +944,7 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
   var pad = function (n) { return String(n).padStart(2, '0'); };
   var TODAY = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(TD);
   var PRESETS = [['Rent', 650, 1, 'Rent'], ['Mortgage', 650, 8, 'Mortgage'], ['Electricity', 45, 24, 'Electricity'], ['Water', 18, 26, 'Water'], ['Internet', 35, 25, 'Internet'], ['Phone', 12, 15, 'Phone'], ['Gym', 30, 27, 'Gym'], ['Streaming', 11, 22, 'Subscriptions']];
-  var A = { step: 'welcome', name: 'Main account', bal: '', inc: '', day: 28, noIncome: false, bills: [] };
+  var A = { step: 'welcome', name: 'Main account', bal: '', inc: '', day: 28, noIncome: false, bills: [], extra: [] };
   var esc = function (x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var num = function (v) { var n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); return isFinite(n) ? n : NaN; };
   var ord = function (d) { return d + (d % 10 === 1 && d !== 11 ? 'st' : d % 10 === 2 && d !== 12 ? 'nd' : d % 10 === 3 && d !== 13 ? 'rd' : 'th'); };
@@ -995,7 +996,7 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
       var open = A.bills.filter(function (b) { return b.day < TD && b.paid == null; });
       var has = function (n) { return A.bills.some(function (b) { return b.preset === n; }); };
       var total = A.bills.reduce(function (t, b) { return t + (num(b.amount) || 0); }, 0);
-      var label = open.length ? 'Answer for ' + open.map(function (b) { return esc(b.name); }).join(' and ') : A.bills.length ? 'Create my plan' : 'I have no fixed bills';
+      var label = open.length ? 'Answer for ' + open.map(function (b) { return esc(b.name); }).join(' and ') : A.bills.length ? 'Next' : 'I have no fixed bills';
       return '<div class="ob-col" style="gap:20px">' + head(3, 3, 'income') +
         '<div class="ob-col" style="gap:10px"><h1>What do you pay every month?</h1><p class="ob-mut">Tap what you have. Change the amount and day if they are different.</p></div>' +
         '<div class="ob-chips">' + PRESETS.map(function (p) { return '<button class="ob-chip" aria-pressed="' + has(p[0]) + '" data-preset="' + p[0] + '">' + (has(p[0]) ? I.tick : '') + p[0] + '</button>'; }).join('') + '<button class="ob-chip dashed" data-act="other">' + I.plus + ' Other</button></div>' +
@@ -1005,7 +1006,20 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
             (b.day < TD ? '<div class="ob-bq' + (b.paid == null ? '' : ' ok') + '"><span>Already paid in ' + MON + '?</span><div class="ob-yn" role="group" aria-label="' + esc(b.name) + ' already paid"><button aria-pressed="' + (b.paid === true) + '" data-yes="' + i + '">Yes</button><button aria-pressed="' + (b.paid === false) + '" data-no="' + i + '">Not yet</button></div></div>' : '') +
             '</div>';
         }).join('') + '</div><p class="ob-hint">' + A.bills.length + (A.bills.length === 1 ? ' bill' : ' bills') + ' · ' + eur(total) + ' a month</p>' : '') +
-        '<div class="ob-grow"></div><button class="ob-btn" data-go="making"' + (open.length ? ' disabled' : '') + '>' + label + '</button></div>';
+        '<div class="ob-grow"></div><button class="ob-btn" data-go="more"' + (open.length ? ' disabled' : '') + '>' + label + '</button></div>';
+    }
+    if (s === 'more') {
+      var KL = { savings: ['Savings account', 'Balance today'], card: ['Credit card', 'Owed today'], loan: ['Mortgage or loan', 'Still owed'] };
+      return '<div class="ob-col" style="gap:20px">' + head(0, 0, 'bills') +
+        '<div class="ob-col" style="gap:10px"><h1>Any other accounts?</h1><p class="ob-mut">Optional. Savings are kept apart from what you can spend; card debt counts straight away.</p></div>' +
+        '<div class="ob-chips"><button class="ob-chip dashed" data-add="savings">' + I.plus + ' Savings</button><button class="ob-chip dashed" data-add="card">' + I.plus + ' Credit card</button><button class="ob-chip dashed" data-add="loan">' + I.plus + ' Mortgage or loan</button></div>' +
+        (A.extra.length ? '<div class="ob-card">' + A.extra.map(function (x, i) {
+          return '<div class="ob-bill"><div class="ob-bhead"><input class="ob-bname" data-xname="' + i + '" value="' + esc(x.name) + '" aria-label="' + KL[x.kind][0] + ' name"><button class="ob-x" data-xrm="' + i + '" aria-label="Remove ' + esc(x.name) + '">' + I.close + '</button></div>' +
+            '<div class="ob-bfields"><label class="ob-mini">' + KL[x.kind][1] + '<span class="ob-money"><input inputmode="decimal" data-xbal="' + i + '" value="' + esc(x.bal) + '" placeholder="0"><span>€</span></span></label>' +
+            (x.kind === 'card' ? '<label class="ob-mini">Limit<span class="ob-money"><input inputmode="decimal" data-xlim="' + i + '" value="' + esc(x.limit) + '" placeholder="0"><span>€</span></span></label>' : x.kind === 'savings' ? '<label class="ob-mini">Emergency fund<button class="ob-chip" style="height:44px" aria-pressed="' + !!x.em + '" data-xem="' + i + '">' + (x.em ? I.tick + ' Yes' : 'No') + '</button></label>' : '<span></span>') +
+            '</div></div>';
+        }).join('') + '</div>' : '') +
+        '<div class="ob-grow"></div><button class="ob-btn" data-go="making">' + (A.extra.length ? 'Create my plan' : 'Skip and create my plan') + '</button></div>';
     }
     if (s === 'making') return '<div class="ob-col" style="gap:28px;justify-content:center;flex:1">' +
       '<div class="ob-spin" aria-hidden="true"></div><h1>Making your plan</h1><div class="ob-col" style="gap:14px" role="status">' +
@@ -1032,6 +1046,9 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
     if (t.dataset.preset) { var n = t.dataset.preset, i = A.bills.findIndex(function (b) { return b.preset === n; }); if (i >= 0) A.bills.splice(i, 1); else { var p = PRESETS.find(function (x) { return x[0] === n; }); A.bills.push({ preset: n, name: n, amount: String(p[1]), day: p[2], cat: p[3], paid: null }); } return render(true); }
     if (t.dataset.act === 'other') { var k = 1; while (A.bills.some(function (b) { return b.name === 'Bill ' + k; })) k++; A.bills.push({ preset: '', name: 'Bill ' + k, amount: '20', day: 28, cat: 'Other payments', paid: null }); return render(true); }
     if (t.dataset.rm != null) { A.bills.splice(+t.dataset.rm, 1); return render(true); }
+    if (t.dataset.add) { var nm = { savings: 'Savings', card: 'Credit card', loan: 'Mortgage' }[t.dataset.add], k2 = 1, base = nm; while (A.extra.some(function (x) { return x.name === nm; }) || nm === A.name) { k2++; nm = base + ' ' + k2; } A.extra.push({ kind: t.dataset.add, name: nm, bal: '', limit: '', em: t.dataset.add === 'savings' && !A.extra.some(function (x) { return x.em; }) }); return render(true); }
+    if (t.dataset.xrm != null) { A.extra.splice(+t.dataset.xrm, 1); return render(true); }
+    if (t.dataset.xem != null) { var xe = A.extra[+t.dataset.xem]; xe.em = !xe.em; return render(true); }
     if (t.dataset.yes != null) { A.bills[+t.dataset.yes].paid = true; return render(true); }
     if (t.dataset.no != null) { A.bills[+t.dataset.no].paid = false; return render(true); }
   });
@@ -1042,6 +1059,9 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
     if (t.id === 'ob-inc') { A.inc = t.value; A.noIncome = false; if (nx) nx.disabled = !(num(t.value) > 0); }
     if (t.dataset.amt != null) A.bills[+t.dataset.amt].amount = t.value;
     if (t.dataset.name != null) A.bills[+t.dataset.name].name = t.value;
+    if (t.dataset.xname != null) A.extra[+t.dataset.xname].name = t.value;
+    if (t.dataset.xbal != null) A.extra[+t.dataset.xbal].bal = t.value;
+    if (t.dataset.xlim != null) A.extra[+t.dataset.xlim].limit = t.value;
   });
   root.addEventListener('change', function (e) {
     var t = e.target;
@@ -1062,9 +1082,15 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
     if (!A.noIncome && inc > 0) { var d0 = Math.min(A.day, LAST); rec.push({ row: row++, desc: 'Salary', cat: 'Salary', from: '', to: acc, amount: inc, day: d0, paid: d0 < TD, paidOn: '', varies: false }); }
     A.bills.forEach(function (b) { var a = num(b.amount); if (!(a > 0)) return; var d = Math.min(b.day, LAST); rec.push({ row: row++, desc: (b.name || '').trim() || 'Bill', cat: b.cat, from: acc, to: '', amount: a, day: d, paid: d < TD && b.paid === true, paidOn: '', varies: false }); });
     var bal = num(A.bal) || 0;
+    var accounts = [{ row: 2, name: acc, type: 'Bank', balanceApp: bal, balanceDate: TODAY, balanceNow: bal, expectedEnd: null, limit: null, available: null, invested: null, profit: null, note: '', colour: '#005FA9' }];
+    var used = [acc.toLowerCase()], em = [], cols = { savings: '#38913E', card: '#181B1F', loan: '#8B5E3C' };
+    A.extra.forEach(function (x) { var n = (x.name || '').trim(); if (!n) return; var nn = n, k = 2; while (used.indexOf(nn.toLowerCase()) >= 0) nn = n + ' ' + k++; used.push(nn.toLowerCase());
+      var v = num(x.bal) || 0, owed = x.kind !== 'savings', b = owed ? -Math.abs(v) : v;
+      accounts.push({ row: accounts.length + 2, name: nn, type: x.kind === 'savings' ? 'Bank' : x.kind === 'card' ? 'Credit card' : 'Loan', balanceApp: b, balanceDate: TODAY, balanceNow: b, expectedEnd: null, limit: x.kind === 'card' ? (num(x.limit) || null) : null, available: null, invested: null, profit: null, note: '', colour: cols[x.kind] });
+      if (x.kind === 'savings' && x.em) em.push(nn); });
     return { today: TODAY, openMonth: TODAY.slice(0, 8) + '01', startedOn: TODAY, cashNow: bal, expectedEnd: bal, netWorth: bal,
-      accounts: [{ row: 2, name: acc, type: 'Bank', balanceApp: bal, balanceDate: TODAY, balanceNow: bal, expectedEnd: null, limit: null, available: null, invested: null, profit: null, note: '', colour: '#005FA9' }],
-      tx: [], rec: rec, cats: cats, targets: { needs: 0.5, wants: 0.3, savings: 0.2 }, sheetUrl: '', emergency: { accounts: [], months: 6 } };
+      accounts: accounts,
+      tx: [], rec: rec, cats: cats, targets: { needs: 0.5, wants: 0.3, savings: 0.2 }, sheetUrl: '', emergency: { accounts: em, months: 6 } };
   }
   function run() {
     [0, 1, 2].forEach(function (i) { setTimeout(function () { var el = root.querySelector('[data-s="' + i + '"]'); if (el) el.classList.add('done'); }, 450 * (i + 1)); });
@@ -1076,7 +1102,7 @@ document.addEventListener("visibilitychange",function(){if(!isOn())return;var l=
     }, 1700);
   }
 
-  window.__showOnb = function () { A = { step: 'welcome', name: 'Main account', bal: '', inc: '', day: 28, noIncome: false, bills: [] }; document.getElementById('setup').style.display = 'none'; root.style.display = 'flex'; render(); };
+  window.__showOnb = function () { A = { step: 'welcome', name: 'Main account', bal: '', inc: '', day: 28, noIncome: false, bills: [], extra: [] }; document.getElementById('setup').style.display = 'none'; root.style.display = 'flex'; render(); };
   var back = document.getElementById('setupBack');
   if (back) back.addEventListener('click', function () { window.__showOnb(); });
 })();
