@@ -172,7 +172,7 @@ html[data-theme=dark] #galert .ga-card{background:linear-gradient(180deg,rgba(66
 @keyframes fynModalOut{from{transform:none}to{transform:translateY(100%)}}
 @keyframes fynSink{from{transform:none}to{transform:scale(.96)}}
 @keyframes fynRise{from{transform:scale(.96)}to{transform:none}}
-#topblur{position:absolute;left:0;right:0;top:0;height:env(safe-area-inset-top);z-index:40;pointer-events:none;background:transparent;-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8)}
+#topblur{position:absolute;left:0;right:0;top:0;height:calc(env(safe-area-inset-top) * 1.6);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 55%,rgba(0,0,0,.6) 75%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 55%,rgba(0,0,0,.6) 75%,transparent 100%);z-index:40;pointer-events:none;background:transparent;-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8)}
 #gsync{position:absolute;left:0;right:0;top:env(safe-area-inset-top);height:5px;z-index:80;opacity:0;pointer-events:none;overflow:hidden;background:rgba(17,17,17,.12);transition:opacity .18s}
 #gsync.on{opacity:1}
 #gsync i{display:block;height:100%;width:38%;border-radius:3px;background:linear-gradient(90deg,#111 0,#111 72%,#2FB36A 72%);animation:fynRun 1.05s cubic-bezier(.45,0,.55,1) infinite}
