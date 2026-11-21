@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Fyn</title>
-<script>(function(){var m=window.matchMedia('(prefers-color-scheme: dark)');function apply(){var p=localStorage.getItem('fyn.theme')||'system';var d=p==='dark'||(p==='system'&&m.matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');var mt=document.querySelector('meta[name=theme-color]');window.__baseTint=d?'#000000':'#F4F3EF';if(mt)mt.setAttribute('content',window.__baseTint);if(window.__tint)window.__tint();}window.__tint=function(){var mt=document.querySelector('meta[name=theme-color]');if(!mt)return;var cur=(location.hash.slice(1)||'home');var hh=document.querySelector('.screen[data-name=home]');var top=cur==='home'&&!(hh&&hh.classList.contains('scrolled'));var c=window.__baseTint;if(c&&mt.getAttribute('content')!==c)mt.setAttribute('content',c);};window.__applyTheme=apply;apply();m.addEventListener&&m.addEventListener('change',apply);})();</script>
+<script>(function(){var m=window.matchMedia('(prefers-color-scheme: dark)');function apply(){var p=localStorage.getItem('fyn.theme')||'system';var d=p==='dark'||(p==='system'&&m.matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');var mt=document.querySelector('meta[name=theme-color]');window.__baseTint=d?'#000000':'#F4F3EF';if(mt)mt.setAttribute('content',window.__baseTint);if(window.__tint)window.__tint();}window.__tint=function(){var mt=document.querySelector('meta[name=theme-color]');if(!mt)return;var c=window.__baseTint;var cur=(location.hash.slice(1)||'home');if(cur==='home'){var hero=document.querySelector('.screen[data-name=home] [style*="var(--hero)"]');var tb=document.getElementById('topblur');var st=tb?tb.offsetHeight:0;if(hero&&st>0){var r=hero.getBoundingClientRect();if(r.top<st&&r.bottom>st)c=getComputedStyle(hero).backgroundColor;}}if(c&&mt.getAttribute('content')!==c)mt.setAttribute('content',c);};window.__applyTheme=apply;apply();m.addEventListener&&m.addEventListener('change',apply);})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>html,body{margin:0;height:100%;background:#E9E7E1;-webkit-text-size-adjust:100%}
@@ -172,7 +172,7 @@ html[data-theme=dark] #galert .ga-card{background:linear-gradient(180deg,rgba(66
 @keyframes fynModalOut{from{transform:none}to{transform:translateY(100%)}}
 @keyframes fynSink{from{transform:none}to{transform:scale(.96)}}
 @keyframes fynRise{from{transform:scale(.96)}to{transform:none}}
-#topblur{position:absolute;left:0;right:0;top:0;height:env(safe-area-inset-top);z-index:40;pointer-events:none;background:color-mix(in srgb,var(--bg) 45%,transparent);-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8)}
+#topblur{position:absolute;left:0;right:0;top:0;height:env(safe-area-inset-top);z-index:40;pointer-events:none;background:transparent;-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8)}
 #gsync{position:absolute;left:0;right:0;top:env(safe-area-inset-top);height:5px;z-index:80;opacity:0;pointer-events:none;overflow:hidden;background:rgba(17,17,17,.12);transition:opacity .18s}
 #gsync.on{opacity:1}
 #gsync i{display:block;height:100%;width:38%;border-radius:3px;background:linear-gradient(90deg,#111 0,#111 72%,#2FB36A 72%);animation:fynRun 1.05s cubic-bezier(.45,0,.55,1) infinite}
