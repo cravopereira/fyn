@@ -19,6 +19,7 @@ const OPEN_MONTH_CELL = 'B3';
 const CLOSE_BOX_CELL = 'G3';
 const ITEMS_RANGE = 'A5:G39';
 const PAID_ON_COL = 18; // R: the day it was actually paid
+const USUAL_COL = 19;   // S: usual amount when this month's was a one-off
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -104,6 +105,12 @@ function closeMonth() {
   const ticks = rows.map(function (r) { return [r[0] ? false : r[6]]; });
   rec.getRange('G5:G39').setValues(ticks);
   if (hasPaidOn) rec.getRange(5, PAID_ON_COL, 35, 1).clearContent();
+  // One-off amounts were for this month only: put the usual amount back.
+  if (rec.getMaxColumns() >= USUAL_COL) {
+    const usual = rec.getRange(5, USUAL_COL, 35, 1).getValues();
+    usual.forEach(function (u, i) { if (u[0] !== '' && u[0] !== null && rows[i][0]) rec.getRange(5 + i, 5).setValue(Number(u[0])); });
+    rec.getRange(5, USUAL_COL, 35, 1).clearContent();
+  }
 
   // Move to the next month.
   const nextYear = month === 12 ? year + 1 : year;
@@ -148,7 +155,7 @@ function rollWeekly_(y, m) {
       } else {
         rec.getRange(row, 1, 1, 6).clearContent();
         rec.getRange(row, 7).setValue(false);
-        if (rec.getMaxColumns() >= PAID_ON_COL) rec.getRange(row, PAID_ON_COL).clearContent();
+        if (rec.getMaxColumns() >= PAID_ON_COL) rec.getRange(row, PAID_ON_COL, 1, Math.min(2, rec.getMaxColumns() - PAID_ON_COL + 1)).clearContent();
       }
     });
     for (let k = g.length; k < days.length; k++) {
